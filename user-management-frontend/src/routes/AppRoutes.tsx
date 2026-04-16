@@ -3,6 +3,7 @@ import { LoginPage } from '../pages/login/LoginPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { UsersPage } from '../pages/users/UsersPage';
 import { RolesPage } from '../pages/roles/RolesPage';
+import { RoleDetailPage } from '../pages/roles/RoleDetailPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { UnauthorizedPage } from '../pages/unauthorized/UnauthorizedPage';
 import { NotFoundPage } from '../pages/not-found/NotFoundPage';
@@ -53,6 +54,13 @@ const rolesRoute = createRoute({
   component: RolesPage,
 });
 
+// Role detail page
+const roleDetailRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/roles/$roleId',
+  component: RoleDetailPage,
+});
+
 // Profile page
 const profileRoute = createRoute({
   getParentRoute: () => layoutRoute,
@@ -79,6 +87,7 @@ const layoutWithChildren = layoutRoute.addChildren([
   dashboardRoute,
   usersRoute,
   rolesRoute,
+  roleDetailRoute,
   profileRoute,
 ]);
 

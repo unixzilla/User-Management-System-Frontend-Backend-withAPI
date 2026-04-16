@@ -14,10 +14,12 @@ import {
   TableHead,
   TableRow,
   IconButton,
+  Link as MuiLink,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import { useNavigate } from '@tanstack/react-router';
 import { useGetRolesQuery, useDeleteRoleMutation } from '@/api';
 import { Role } from '@/types';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -26,6 +28,7 @@ import { DeleteRoleDialog } from './DeleteRoleDialog';
 import { EditRoleDialog } from './EditRoleDialog';
 
 export function RolesPage() {
+  const navigate = useNavigate();
   const { canManageRoles } = usePermissions();
   const { data: roles = [], isLoading } = useGetRolesQuery({});
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -70,7 +73,14 @@ export function RolesPage() {
               {roles.map((role) => (
                 <TableRow key={role.id} hover>
                   <TableCell>{role.id}</TableCell>
-                  <TableCell>{role.name}</TableCell>
+                  <TableCell>
+                    <Button
+                      onClick={() => navigate({ to: '/roles/$roleId', params: { roleId: role.id.toString() } })}
+                      sx={{ textTransform: 'none', fontWeight: 500, p: 0, minWidth: 'unset' }}
+                    >
+                      {role.name}
+                    </Button>
+                  </TableCell>
                   <TableCell>{role.description || '-'}</TableCell>
                   <TableCell align="right">
                     <IconButton

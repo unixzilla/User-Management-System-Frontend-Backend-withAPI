@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -11,13 +11,21 @@ import {
   Box,
   Switch,
   FormControlLabel,
+  Chip,
+  IconButton,
+  Divider,
+  Typography,
+  Paper,
+  CircularProgress,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { userUpdateSchema, type UserUpdateSchema } from '@/utils/validation';
-import { useUpdateUserMutation } from '@/api';
+import { useUpdateUserMutation, useAssignRoleMutation, useRemoveRoleMutation, useGetRolesQuery } from '@/api';
 import { useSnackbar } from 'notistack';
 import { User } from '@/types';
+import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
 
 interface EditUserDialogProps {
   open: boolean;
@@ -27,7 +35,10 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
-  const [updateUser, { isLoading }] = useUpdateUserMutation();
+  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
+  const [assignRole, { isLoading: assigning }] = useAssignRoleMutation();
+  const [removeRole, { isLoading: removing }] = useRemoveRoleMutation();
+  const { data: allRoles = [], isLoading: rolesLoading } = useGetRolesQuery({});
 
   const {
     register,
@@ -46,6 +57,17 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
     },
   });
 
+  // Compute current and available roles based on user's role names
+  const currentRoles = React.useMemo(() => {
+    return allRoles.filter((role) => user.roles?.includes(role.name));
+  }, [allRoles, user.roles]);
+
+  const availableRoles = React.useMemo(() => {
+    return allRoles.filter((role) => !user.roles?.includes(role.name));
+  }, [allRoles, user.roles]);
+
+  const [selectedRoleToAdd, setSelectedRoleToAdd] = useState<number | ''>('');
+
   React.useEffect(() => {
     if (open && user) {
       reset({
@@ -55,6 +77,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
         is_active: user.is_active,
         is_verified: user.is_verified,
       });
+      setSelectedRoleToAdd('');
     }
   }, [open, user, reset]);
 
@@ -69,7 +92,30 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
   };
 
   const handleClose = () => {
+    setSelectedRoleToAdd('');
     onClose();
+  };
+
+  // Add role to user
+  const handleAddRole = async () => {
+    if (!selectedRoleToAdd) return;
+    try {
+      await assignRole({ userId: user.id, roleId: selectedRoleToAdd as number }).unwrap();
+      enqueueSnackbar('Role assigned successfully', { variant: 'success' });
+      setSelectedRoleToAdd('');
+    } catch (err: any) {
+      enqueueSnackbar(err.data?.detail || 'Failed to assign role', { variant: 'error' });
+    }
+  };
+
+  // Remove role from user
+  const handleRemoveRole = async (roleId: number) => {
+    try {
+      await removeRole({ userId: user.id, roleId }).unwrap();
+      enqueueSnackbar('Role removed successfully', { variant: 'success' });
+    } catch (err: any) {
+      enqueueSnackbar(err.data?.detail || 'Failed to remove role', { variant: 'error' });
+    }
   };
 
   return (
@@ -78,6 +124,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {/* User Info Fields */}
             <TextField
               label="Email"
               {...register('email')}
@@ -114,14 +161,92 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
                 />
               )}
             />
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Role Management Section */}
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              Roles
+            </Typography>
+
+            {rolesLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : (
+              <>
+                {/* Current Roles */}
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Current Roles
+                  </Typography>
+                  {currentRoles.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      No roles assigned
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {currentRoles.map((role) => (
+                        <Chip
+                          key={role.id}
+                          label={role.name}
+                          onDelete={() => handleRemoveRole(role.id)}
+                          color="primary"
+                          deleteIcon={<CloseIcon />}
+                          disabled={removing}
+                          title="Click to remove"
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Add New Role */}
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Add Role
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <select
+                      value={selectedRoleToAdd}
+                      onChange={(e) => setSelectedRoleToAdd(e.target.value ? parseInt(e.target.value, 10) : '')}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(0, 0, 0, 0.23)',
+                        backgroundColor: 'white',
+                        fontSize: 'inherit',
+                      }}
+                      disabled={availableRoles.length === 0 || assigning}
+                    >
+                      <option value="">{availableRoles.length === 0 ? 'No roles available' : 'Select a role'}</option>
+                      {availableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name} {role.description ? `- ${role.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outlined"
+                      onClick={handleAddRole}
+                      disabled={!selectedRoleToAdd || assigning || availableRoles.length === 0}
+                      startIcon={<AddIcon />}
+                    >
+                      Add
+                    </Button>
+                  </Box>
+                </Box>
+              </>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} disabled={isLoading}>
+          <Button onClick={handleClose} disabled={isUpdating || assigning || removing}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" loading={isLoading}>
-            Save
+          <Button type="submit" variant="contained" loading={isUpdating}>
+            Save Changes
           </Button>
         </DialogActions>
       </form>
