@@ -32,7 +32,7 @@ async def seed_roles(db: AsyncSession) -> None:
 async def seed_admin_user(db: AsyncSession) -> None:
     """Seed the default admin user from environment variables."""
     email = settings.first_superuser_email
-    username = settings.first_superuser_password
+    username = settings.first_superuser_username
 
     # Check if admin already exists
     existing = await user_crud.get_by_email(db, email)

@@ -9,7 +9,7 @@ import { NotFoundPage } from '../pages/not-found/NotFoundPage';
 import { AppLayout } from '../components/layout/AppLayout/AppLayout';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute/ProtectedRoute';
 
-// Root route with layout
+// Root route
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
 });
@@ -21,10 +21,10 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 
-// Main app layout (protected area)
+// Protected layout route (no path, wraps all protected routes)
 const layoutRoute = createRoute({
+  id: 'layout',
   getParentRoute: () => rootRoute,
-  path: '/',
   component: () => (
     <ProtectedRoute>
       <AppLayout />
@@ -32,38 +32,38 @@ const layoutRoute = createRoute({
   ),
 });
 
-// Dashboard (default protected route)
+// Dashboard - default child of layout (serves as index)
 const dashboardRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: '/',
   component: DashboardPage,
 });
 
-// Users routes (admin protected)
+// Users page
 const usersRoute = createRoute({
   getParentRoute: () => layoutRoute,
-  path: 'users',
+  path: '/users',
   component: UsersPage,
 });
 
-// Roles routes (admin protected)
+// Roles page
 const rolesRoute = createRoute({
   getParentRoute: () => layoutRoute,
-  path: 'roles',
+  path: '/roles',
   component: RolesPage,
 });
 
-// Profile route
+// Profile page
 const profileRoute = createRoute({
   getParentRoute: () => layoutRoute,
-  path: 'profile',
+  path: '/profile',
   component: ProfilePage,
 });
 
 // Unauthorized page
 const unauthorizedRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'unauthorized',
+  path: '/unauthorized',
   component: UnauthorizedPage,
 });
 
@@ -74,9 +74,17 @@ const notFoundRoute = createRoute({
   component: NotFoundPage,
 });
 
+// Build route tree: attach children to layoutRoute, then add to root
+const layoutWithChildren = layoutRoute.addChildren([
+  dashboardRoute,
+  usersRoute,
+  rolesRoute,
+  profileRoute,
+]);
+
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  layoutRoute.addChildren([dashboardRoute, usersRoute, rolesRoute, profileRoute]),
+  layoutWithChildren,
   unauthorizedRoute,
   notFoundRoute,
 ]);

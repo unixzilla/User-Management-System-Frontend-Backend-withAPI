@@ -58,8 +58,12 @@ export function Header({ onMenuClick }: HeaderProps) {
           User Management
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <UserAvatar username={user?.username} size="small" />
-          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} color="inherit">
+          <IconButton
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+            color="inherit"
+            sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
+          >
+            <UserAvatar username={user?.username} size="small" />
             <Typography variant="body2">{user?.username || 'User'}</Typography>
           </IconButton>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>

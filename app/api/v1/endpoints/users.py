@@ -33,6 +33,15 @@ async def list_users(
     return users
 
 
+@router.get("/me", response_model=UserOut)
+async def get_current_user_profile(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Get the current authenticated user's profile."""
+    return current_user
+
+
 @router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: Request,

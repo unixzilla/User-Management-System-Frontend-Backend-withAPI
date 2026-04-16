@@ -17,13 +17,16 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 type AuthAction =
   | { type: 'SET_LOADING' }
-  | { type: 'SET_AUTHENTICATED'; payload: { user: User; tokens: TokenPair } };
+  | { type: 'SET_AUTHENTICATED'; payload: { user: User; tokens: TokenPair } }
+  | { type: 'SET_NOT_AUTHENTICATED' };
 
 function authReducer(state: { isLoading: boolean }, action: AuthAction) {
   switch (action.type) {
     case 'SET_LOADING':
       return { isLoading: true };
     case 'SET_AUTHENTICATED':
+      return { isLoading: false };
+    case 'SET_NOT_AUTHENTICATED':
       return { isLoading: false };
     default:
       return state;
@@ -42,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (token && user) {
       dispatch({ type: 'SET_AUTHENTICATED', payload: { user, tokens: { access_token: token, refresh_token: storage.getRefreshToken() || '', token_type: 'bearer' } } });
     } else {
-      dispatch({ type: 'SET_LOADING' }); // Will be overridden by reducer
+      dispatch({ type: 'SET_NOT_AUTHENTICATED' });
     }
   }, []);
 
@@ -60,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatchRedux(setCredentials({ user, tokens: result }));
       dispatch({ type: 'SET_AUTHENTICATED', payload: { user, tokens: result } });
     } catch (err) {
-      dispatch({ type: 'SET_LOADING' });
+      dispatch({ type: 'SET_NOT_AUTHENTICATED' });
       throw err;
     }
   };

@@ -8,7 +8,7 @@ from app.db.postgres import get_async_session
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.services.user_service import user_service
 from app.schemas.token import TokenPair
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserLogin
 from app.models.user import User
 from app.dependencies import oauth2_scheme, get_current_user, get_db
 from app.core.exceptions import UnauthorizedError, ForbiddenError
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.post("/login", response_model=TokenPair)
 async def login(
     request: Request,
-    user_in: UserCreate,
+    user_in: UserLogin,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenPair:
     """

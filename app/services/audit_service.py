@@ -48,7 +48,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent,
             timestamp=timestamp or datetime.now(),
-        ).model_dump(by_alias=True, mode="json")
+        ).model_dump(by_alias=True, mode="json", exclude_none=True)
 
         # Fire-and-forget: create task but don't await
         asyncio.create_task(self._write_audit(audit_doc))

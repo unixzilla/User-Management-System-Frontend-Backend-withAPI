@@ -20,6 +20,13 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
 
+class UserLogin(BaseModel):
+    """Schema for user login (email + password only, no username required)."""
+
+    email: EmailStr
+    password: str = Field(..., min_length=1)
+
+
 class UserUpdate(BaseModel):
     """Schema for updating user fields."""
 
