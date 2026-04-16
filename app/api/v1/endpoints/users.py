@@ -125,9 +125,9 @@ async def delete_user(
 async def assign_role_to_user(
     request: Request,
     user_id: str,
-    role_id: int = Query(..., description="Role ID to assign"),
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_active_admin)],
+    role_id: int = Query(..., description="Role ID to assign"),
 ) -> dict:
     """Assign a role to a user (admin only)."""
     from uuid import UUID

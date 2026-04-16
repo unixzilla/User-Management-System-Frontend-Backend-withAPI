@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_serializer
 
 
 class UserBase(BaseModel):
@@ -43,7 +43,12 @@ class UserOut(BaseModel):
     is_active: bool
     is_verified: bool
     created_at: datetime
-    roles: list[str] = []
+    roles: list = []  # Will be serialized to list of role names
+
+    @field_serializer("roles")
+    def serialize_roles(self, roles: list) -> list[str]:
+        """Convert Role objects to list of role names."""
+        return [role.name for role in roles] if roles else []
 
 
 class UserInDBBase(UserBase):

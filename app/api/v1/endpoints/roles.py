@@ -9,7 +9,7 @@ from app.services.role_service import role_service
 from app.services.user_service import user_service
 from app.models.user import User
 from app.schemas.role import RoleCreate, RoleUpdate, RoleOut
-from app.dependencies import get_current_user, get_current_active_admin
+from app.dependencies import get_current_user, get_current_active_admin, get_db
 
 router = APIRouter(prefix="/roles", tags=["roles"])
 

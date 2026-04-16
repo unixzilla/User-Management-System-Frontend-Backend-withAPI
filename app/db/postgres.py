@@ -3,9 +3,12 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
+
+# Declarative base for all SQLAlchemy models
+Base = declarative_base()
 
 _engine: AsyncEngine | None = None
 _async_session_maker: sessionmaker | None = None

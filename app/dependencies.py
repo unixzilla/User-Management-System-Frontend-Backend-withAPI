@@ -31,7 +31,12 @@ async def get_current_user(
     if token_data is None:
         raise UnauthorizedError(detail="Could not validate credentials")
 
-    result = await db.execute(select(User).where(User.id == token_data.sub))
+    # token_data is a dict with 'sub' key (user UUID as string)
+    user_id = token_data.get("sub")
+    if user_id is None:
+        raise UnauthorizedError(detail="Invalid token payload")
+
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if user is None:

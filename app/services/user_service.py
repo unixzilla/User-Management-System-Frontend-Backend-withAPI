@@ -19,6 +19,7 @@ class UserService:
     def __init__(self):
         self.user_crud = user_crud
         self.role_crud = role_crud
+        self.audit_service = audit_service
 
     async def create_user(
         self,

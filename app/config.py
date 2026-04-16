@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     refresh_token_expire_days: int = Field(7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
 
-    # CORS
-    cors_origins: List[str] = Field([], alias="CORS_ORIGINS")
+    # CORS — JSON array from env (e.g. '["http://localhost:3000","http://localhost:8080"]')
+    cors_origins: List[str] = Field([], alias="CORS_ORIGINS", json=True)
 
     # Initial Admin
     first_superuser_email: str = Field("admin@example.com", alias="FIRST_SUPERUSER_EMAIL")

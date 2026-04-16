@@ -19,6 +19,7 @@ class RoleService:
 
     def __init__(self):
         self.role_crud = role_crud
+        self.audit_service = audit_service
 
     async def create_role(
         self,
