@@ -24,9 +24,19 @@ from app.crud.role import role as role_crud
 
 
 async def seed_roles(db: AsyncSession) -> None:
-    """Seed the three core roles."""
+    """Seed the core roles including guest."""
+    # Seed initial roles (admin, editor, viewer)
     await role_service.seed_initial_roles(db)
-    print("  Seeded roles: admin, editor, viewer")
+    # Ensure guest role exists
+    guest_role = await role_crud.get_by_name(db, "guest")
+    if not guest_role:
+        await role_crud.create(
+            db,
+            {"name": "guest", "description": "Default guest role with minimal access"},
+        )
+        print("  Seeded roles: admin, editor, viewer, guest")
+    else:
+        print("  Seeded roles: admin, editor, viewer, guest (already existed)")
 
 
 async def seed_admin_user(db: AsyncSession) -> None:
@@ -34,19 +44,25 @@ async def seed_admin_user(db: AsyncSession) -> None:
     email = settings.first_superuser_email
     username = settings.first_superuser_username
 
-    # Check if admin already exists
-    existing = await user_crud.get_by_email(db, email)
-    if existing:
-        print(f"  Admin user already exists: {email}")
-        return
-
-    # Get admin role
+    # Get admin role (must exist)
     admin_role = await role_crud.get_by_name(db, "admin")
     if not admin_role:
         print("  ERROR: Admin role not found. Run seed_roles first.")
         return
 
-    # Create admin user
+    # Check if admin user already exists
+    existing = await user_crud.get_by_email(db, email)
+    if existing:
+        # Ensure admin user has admin role (idempotent)
+        if admin_role not in existing.roles:
+            await user_crud.assign_role(db, user_id=existing.id, role_id=admin_role.id)
+            await db.commit()
+            print(f"  Admin user exists: assigned missing admin role to {email}")
+        else:
+            print(f"  Admin user already has admin role: {email}")
+        return
+
+    # Create new admin user
     admin = await user_crud.create_with_password(
         db,
         email=email,

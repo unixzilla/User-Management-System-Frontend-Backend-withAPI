@@ -50,6 +50,7 @@ class UserOut(BaseModel):
     is_active: bool
     is_verified: bool
     created_at: datetime
+    last_login: Optional[datetime] = None
     roles: list = []  # Will be serialized to list of role names
 
     @field_serializer("roles")

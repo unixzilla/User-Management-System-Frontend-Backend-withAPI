@@ -1,7 +1,7 @@
 """Audit logging service - writes to MongoDB asynchronously."""
 import asyncio
 from datetime import datetime
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Union
 from uuid import UUID
 
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -27,7 +27,7 @@ class AuditService:
         *,
         event_type: str,
         actor_id: Optional[UUID] = None,
-        target_id: Optional[UUID] = None,
+        target_id: Optional[Union[UUID, int, str]] = None,
         target_type: Optional[str] = None,
         payload: Optional[Dict[str, Any]] = None,
         ip_address: Optional[str] = None,
@@ -71,7 +71,7 @@ class AuditService:
         return await cursor.to_list(length=limit)
 
     async def find_by_target(
-        self, target_id: UUID, target_type: Optional[str] = None
+        self, target_id: Union[UUID, int, str], target_type: Optional[str] = None
     ) -> list[Dict[str, Any]]:
         """Retrieve audit events for a specific target."""
         collection = self._get_collection()

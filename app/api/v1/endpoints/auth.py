@@ -47,6 +47,12 @@ async def login(
     if not user.is_active:
         raise ForbiddenError(detail="User account is disabled")
 
+    # Update last login timestamp
+    from datetime import datetime, timezone
+    user.last_login = datetime.now(timezone.utc)
+    await db.flush()
+    await db.refresh(user)
+
     # Create tokens
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(subject=str(user.id))

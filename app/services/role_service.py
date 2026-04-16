@@ -2,7 +2,7 @@
 from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.crud.role import role as role_crud
 from app.models.role import Role
@@ -102,18 +102,71 @@ class RoleService:
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> bool:
-        """Delete a role."""
+        """Delete a role, automatically unassigning from users.
+
+        Users who lose their only role will be assigned to 'guest' role.
+        Creates 'guest' role if it doesn't exist.
+        The 'admin' role cannot be deleted for security reasons.
+        """
+        from app.crud.user import user as user_crud
+        from app.models.user import user_roles
+
         role = await self.role_crud.get(db, role_id)
         if role is None:
             return False
 
-        # Check if role is assigned to any users
-        users_with_role = await self.role_crud.get_with_users(db, role_id)
-        if users_with_role and users_with_role.users:
-            raise ConflictError(
-                detail=f"Cannot delete role '{role.name}': assigned to {len(users_with_role.users)} user(s)"
-            )
+        # Protect admin role from deletion
+        if role.name == "admin":
+            raise ConflictError(detail="Cannot delete the 'admin' role")
 
+        # Get all user IDs assigned to this role using direct query (avoids session caching)
+        from sqlalchemy import select as sqla_select
+        stmt = sqla_select(user_roles.c.user_id).where(user_roles.c.role_id == role_id)
+        result = await db.execute(stmt)
+        affected_user_ids = [row[0] for row in result.fetchall()]
+
+        # Process each affected user
+        for user_id in affected_user_ids:
+            # Remove the role from the user
+            await user_crud.remove_role(db, user_id=user_id, role_id=role_id)
+
+            # Check how many roles the user has now
+            count_stmt = (
+                select(func.count(user_roles.c.role_id))
+                .where(user_roles.c.user_id == user_id)
+            )
+            count_result = await db.execute(count_stmt)
+            remaining_count = count_result.scalar() or 0
+
+            # If user has no roles left, assign to guest
+            if remaining_count == 0:
+                guest_role = await self.role_crud.get_by_name(db, "guest")
+                if not guest_role:
+                    # Create guest role on-demand if it doesn't exist
+                    guest_role = await self.role_crud.create(
+                        db,
+                        {"name": "guest", "description": "Default guest role with minimal access"},
+                    )
+
+                # Assign guest role
+                await user_crud.assign_role(db, user_id=user_id, role_id=guest_role.id)
+
+                # Log the automatic assignment
+                await audit_service.log(
+                    event_type="role.assigned",
+                    actor_id=actor_id,
+                    target_id=user_id,
+                    target_type="user",
+                    payload={
+                        "assigned_role_id": guest_role.id,
+                        "role_name": guest_role.name,
+                        "reason": f"Role '{role.name}' was deleted",
+                    },
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
+
+        # Now delete the role
         success = await self.role_crud.delete(db, id=role_id)
 
         if success:
@@ -122,7 +175,11 @@ class RoleService:
                 actor_id=actor_id,
                 target_id=role_id,
                 target_type="role",
-                payload={"role_name": role.name},
+                payload={
+                    "role_name": role.name,
+                    "affected_users": [str(uid) for uid in affected_user_ids],
+                    "auto_assigned_guest": len(affected_user_ids),
+                },
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
