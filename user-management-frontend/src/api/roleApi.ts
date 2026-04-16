@@ -1,5 +1,5 @@
 import { baseApi } from './baseApi';
-import { Role, RoleCreate } from '@/types';
+import { Role, RoleCreate, RoleUpdate } from '@/types';
 
 export const roleApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -25,7 +25,15 @@ export const roleApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Role'],
     }),
+    updateRole: builder.mutation<Role, { roleId: number; data: RoleUpdate }>({
+      query: ({ roleId, data }) => ({
+        url: `/roles/${roleId}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Role'],
+    }),
   }),
 });
 
-export const { useGetRolesQuery, useCreateRoleMutation, useDeleteRoleMutation } = roleApi;
+export const { useGetRolesQuery, useCreateRoleMutation, useDeleteRoleMutation, useUpdateRoleMutation } = roleApi;

@@ -21,6 +21,15 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = React.useState<string>('');
+  const [logoutMessage, setLogoutMessage] = React.useState<string>('');
+
+  React.useEffect(() => {
+    const msg = sessionStorage.getItem('logoutMessage');
+    if (msg) {
+      setLogoutMessage(msg);
+      sessionStorage.removeItem('logoutMessage');
+    }
+  }, []);
 
   const {
     register,
@@ -30,7 +39,8 @@ export function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  const from = (location.state as any)?.from?.pathname || '/';
+  // For redirect after login (from ProtectedRoute)
+  const from = (location as any).state?.from?.pathname || '/';
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -77,6 +87,11 @@ export function LoginPage() {
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+          {logoutMessage && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {logoutMessage}
             </Alert>
           )}
 

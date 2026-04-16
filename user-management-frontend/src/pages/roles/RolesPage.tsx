@@ -17,18 +17,22 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import { useGetRolesQuery, useDeleteRoleMutation } from '@/api';
 import { Role } from '@/types';
 import { usePermissions } from '@/hooks/usePermissions';
 import { CreateRoleDialog } from './CreateRoleDialog';
 import { DeleteRoleDialog } from './DeleteRoleDialog';
+import { EditRoleDialog } from './EditRoleDialog';
 
 export function RolesPage() {
   const { canManageRoles } = usePermissions();
   const { data: roles = [], isLoading } = useGetRolesQuery({});
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<Role | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
 
   if (!canManageRoles()) {
     return (
@@ -70,6 +74,17 @@ export function RolesPage() {
                   <TableCell>{role.description || '-'}</TableCell>
                   <TableCell align="right">
                     <IconButton
+                      color="primary"
+                      onClick={() => {
+                        setSelectedRoleForEdit(role);
+                        setOpenEdit(true);
+                      }}
+                      disabled={role.name === 'admin'} // Protect admin role from edit
+                      sx={{ mr: 1 }}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
                       color="error"
                       onClick={() => {
                         setSelectedRole(role);
@@ -89,6 +104,18 @@ export function RolesPage() {
 
       {/* Create Role Dialog */}
       <CreateRoleDialog open={openCreate} onClose={() => setOpenCreate(false)} />
+
+      {/* Edit Role Dialog */}
+      {selectedRoleForEdit && (
+        <EditRoleDialog
+          open={openEdit}
+          onClose={() => {
+            setOpenEdit(false);
+            setSelectedRoleForEdit(null);
+          }}
+          role={selectedRoleForEdit}
+        />
+      )}
 
       {/* Delete Role Dialog */}
       {selectedRole && (

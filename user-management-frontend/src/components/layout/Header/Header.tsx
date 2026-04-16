@@ -14,7 +14,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { UserAvatar } from '@/components/common/Avatar/Avatar';
 import { useAppSelector } from '@/hooks.redux';
-import { useLogoutMutation } from '@/api';
+import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from '@tanstack/react-router';
 
 interface HeaderProps {
@@ -23,7 +23,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { user } = useAppSelector((state) => state.auth);
-  const [logout] = useLogoutMutation();
+  const { logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const navigate = useNavigate();
 
@@ -33,12 +33,9 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   const handleLogout = async () => {
-    try {
-      await logout().unwrap();
-      navigate({ to: '/login' });
-    } catch {
-      // Error handled by mutation
-    }
+    await logout();
+    sessionStorage.setItem('logoutMessage', 'You have been logged out');
+    navigate({ to: '/login' });
     setAnchorEl(null);
   };
 

@@ -30,3 +30,21 @@ export type LoginSchema = z.infer<typeof loginSchema>;
 export type UserCreateSchema = z.infer<typeof userCreateSchema>;
 export type UserUpdateSchema = z.infer<typeof userUpdateSchema>;
 export type RoleCreateSchema = z.infer<typeof roleCreateSchema>;
+
+export const roleUpdateSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name too long').optional(),
+  description: z.string().max(255, 'Description too long').optional().nullable(),
+});
+
+export type RoleUpdateSchema = z.infer<typeof roleUpdateSchema>;
+
+export const profileUpdateSchema = z.object({
+  full_name: z.string().optional().nullable(),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
+  confirmPassword: z.string().optional(),
+}).refine(data => !data.password || data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
+export type ProfileUpdateSchema = z.infer<typeof profileUpdateSchema>;

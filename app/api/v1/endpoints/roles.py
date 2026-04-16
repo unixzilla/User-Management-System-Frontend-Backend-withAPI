@@ -46,6 +46,26 @@ async def create_role(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.patch("/{role_id}", response_model=RoleOut)
+async def update_role(
+    request: Request,
+    role_id: int,
+    role_in: RoleUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_admin)],
+) -> RoleOut:
+    """Update an existing role (admin only)."""
+    return await role_service.update_role(
+        db,
+        role_id=role_id,
+        name=role_in.name,
+        description=role_in.description,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+
 @router.delete("/{role_id}")
 async def delete_role(
     request: Request,

@@ -51,6 +51,48 @@ class RoleService:
 
         return role
 
+    async def update_role(
+        self,
+        db: AsyncSession,
+        *,
+        role_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> Role:
+        """Update an existing role."""
+        role = await self.role_crud.get(db, role_id)
+        if role is None:
+            raise NotFoundError(detail=f"Role with id {role_id} not found")
+
+        update_data = {}
+        if name is not None:
+            existing = await self.role_crud.get_by_name(db, name)
+            if existing and existing.id != role_id:
+                raise ConflictError(detail=f"Role '{name}' already exists")
+            update_data['name'] = name
+        if description is not None:
+            update_data['description'] = description
+
+        if not update_data:
+            return role
+
+        updated = await self.role_crud.update(db, id=role_id, obj_in=update_data)
+
+        await audit_service.log(
+            event_type="role.updated",
+            actor_id=actor_id,
+            target_id=role_id,
+            target_type="role",
+            payload=update_data,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
+        return updated
+
     async def delete_role(
         self,
         db: AsyncSession,

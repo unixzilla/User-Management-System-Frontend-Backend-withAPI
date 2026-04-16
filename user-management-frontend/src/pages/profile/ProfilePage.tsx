@@ -14,6 +14,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { useAppSelector } from '@/hooks.redux';
 import { formatDateTime } from '@/utils/format';
 import { UserAvatar } from '@/components/common/Avatar/Avatar';
+import { EditProfileDialog } from './EditProfileDialog';
 
 export function ProfilePage() {
   const { user } = useAppSelector((state) => state.auth);
@@ -86,7 +87,14 @@ export function ProfilePage() {
         </Box>
       </Paper>
 
-      {/* Edit dialog placeholder - would be implemented similarly to EditUserDialog but only for self */}
+      {/* Edit Profile Dialog */}
+      {user && (
+        <EditProfileDialog
+          open={openEdit}
+          onClose={() => setOpenEdit(false)}
+          user={user}
+        />
+      )}
     </Container>
   );
 }

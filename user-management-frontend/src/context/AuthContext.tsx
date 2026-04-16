@@ -43,11 +43,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = storage.getAccessToken();
     const user = storage.getUser();
     if (token && user) {
+      // Update Redux store as well
+      dispatchRedux(
+        setCredentials({
+          user,
+          tokens: {
+            access_token: token,
+            refresh_token: storage.getRefreshToken() || '',
+            token_type: 'bearer',
+          },
+        })
+      );
       dispatch({ type: 'SET_AUTHENTICATED', payload: { user, tokens: { access_token: token, refresh_token: storage.getRefreshToken() || '', token_type: 'bearer' } } });
     } else {
       dispatch({ type: 'SET_NOT_AUTHENTICATED' });
     }
-  }, []);
+  }, [dispatchRedux]);
 
   const login = async (credentials: LoginRequest) => {
     dispatch({ type: 'SET_LOADING' });
