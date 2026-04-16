@@ -1,5 +1,6 @@
 import { baseApi } from './baseApi';
 import { storage } from '@/utils/storage';
+import { logout } from '@/store/authSlice';
 import { TokenPair, LoginRequest } from '@/types';
 
 export const authApi = baseApi.injectEndpoints({
@@ -25,6 +26,10 @@ export const authApi = baseApi.injectEndpoints({
         url: '/auth/logout',
         method: 'POST',
       }),
+      async onQueryStarted(_, { dispatch }) {
+        // Clear auth state and storage immediately
+        dispatch(logout());
+      },
     }),
   }),
 });

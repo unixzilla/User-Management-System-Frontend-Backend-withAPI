@@ -1,9 +1,8 @@
-import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, TokenPair, LoginRequest } from '@/types';
-import { storage } from '@/utils/storage';
-import { useAppDispatch } from '@/hooks.redux';
-import { setCredentials } from '@/store/authSlice';
-import { useLoginMutation } from '@/api';
+import { useAppSelector, useAppDispatch } from '@/hooks.redux';
+import { setCredentials, logout as logoutAction } from '@/store/authSlice';
+import { useLoginMutation, useLogoutMutation } from '@/api';
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +16,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 type AuthAction =
   | { type: 'SET_LOADING' }
-  | { type: 'SET_AUTHENTICATED'; payload: { user: User; tokens: TokenPair } }
+  | { type: 'SET_AUTHENTICATED' }
   | { type: 'SET_NOT_AUTHENTICATED' };
 
 function authReducer(state: { isLoading: boolean }, action: AuthAction) {
@@ -37,24 +36,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, { isLoading: true });
   const dispatchRedux = useAppDispatch();
   const [loginMutation] = useLoginMutation();
+  const [logoutMutation] = useLogoutMutation();
+
+  // Subscribe to Redux auth state for reactive updates
+  const authState = useAppSelector((s) => s.auth);
 
   useEffect(() => {
-    // Check for existing token and user on mount
-    const token = storage.getAccessToken();
-    const user = storage.getUser();
-    if (token && user) {
-      // Update Redux store as well
-      dispatchRedux(
-        setCredentials({
-          user,
-          tokens: {
-            access_token: token,
-            refresh_token: storage.getRefreshToken() || '',
-            token_type: 'bearer',
-          },
-        })
-      );
-      dispatch({ type: 'SET_AUTHENTICATED', payload: { user, tokens: { access_token: token, refresh_token: storage.getRefreshToken() || '', token_type: 'bearer' } } });
+    // Hydrate Redux store from localStorage on mount
+    const token = localStorage.getItem('accessToken');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        dispatchRedux(
+          setCredentials({
+            user,
+            tokens: {
+              access_token: token,
+              refresh_token: localStorage.getItem('refreshToken') || '',
+              token_type: 'bearer',
+            },
+          })
+        );
+        dispatch({ type: 'SET_AUTHENTICATED' });
+      } catch {
+        dispatch({ type: 'SET_NOT_AUTHENTICATED' });
+      }
     } else {
       dispatch({ type: 'SET_NOT_AUTHENTICATED' });
     }
@@ -68,11 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { Authorization: `Bearer ${result.access_token}` },
       }).then((r) => r.json());
       const user: User = userRes;
-      storage.setAccessToken(result.access_token);
-      storage.setRefreshToken(result.refresh_token);
-      storage.setUser(user);
+      localStorage.setItem('accessToken', result.access_token);
+      localStorage.setItem('refreshToken', result.refresh_token);
+      localStorage.setItem('user', JSON.stringify(user));
       dispatchRedux(setCredentials({ user, tokens: result }));
-      dispatch({ type: 'SET_AUTHENTICATED', payload: { user, tokens: result } });
+      dispatch({ type: 'SET_AUTHENTICATED' });
     } catch (err) {
       dispatch({ type: 'SET_NOT_AUTHENTICATED' });
       throw err;
@@ -81,27 +88,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/logout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${storage.getAccessToken()}` },
-      });
+      await logoutMutation().unwrap();
     } catch {
-      // Ignore logout errors
-    } finally {
-      storage.clearAll();
-      dispatchRedux(setCredentials({ user: null as any, tokens: { access_token: '', refresh_token: '', token_type: 'bearer' } }));
+      // ignore errors — logout action already dispatched by mutation's onQueryStarted
     }
   };
 
   const value: AuthContextType = {
-    user: storage.getUser(),
-    isAuthenticated: !!storage.getAccessToken(),
+    user: authState.user,
+    isAuthenticated: !!authState.accessToken,
     isLoading: state.isLoading,
     login,
     logout,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

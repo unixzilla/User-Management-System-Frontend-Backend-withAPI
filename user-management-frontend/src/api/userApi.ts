@@ -28,7 +28,10 @@ export const userApi = baseApi.injectEndpoints({
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: 'User', id: userId },
+        'User',
+      ],
     }),
     deleteUser: builder.mutation<void, string>({
       query: (userId) => ({
