@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+EGG-INFO/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+!.env.example
+.claude
+user_management_prompt.md
+SUMMARY.md
+
+# Logs
+*.log
+
+# Data
+exports/
+*.csv
+
+# Docker volumes (uncomment to ignore local data)
+# pgdata/
+# mongodata/
+
+# OS
+.DS_Store
+*.pid

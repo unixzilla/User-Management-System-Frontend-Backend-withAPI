@@ -1,0 +1,177 @@
+"""User CRUD endpoints."""
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.db.postgres import get_async_session
+from app.services.user_service import user_service
+from app.models.user import User
+from app.models.role import Role
+from app.schemas.user import UserCreate, UserUpdate, UserOut
+from app.dependencies import get_current_user, get_current_active_admin, get_db
+from app.core.exceptions import NotFoundError, ConflictError, ForbiddenError
+from app.core.security import decode_token
+from app.crud.role import role as role_crud
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/", response_model=list[UserOut])
+async def list_users(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_admin)],
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    active_only: bool = Query(False),
+) -> list[User]:
+    """List all users (admin only)."""
+    users = await user_service.list_users(
+        db, skip=skip, limit=limit, active_only=active_only
+    )
+    return users
+
+
+@router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    request: Request,
+    user_in: UserCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_admin)],
+) -> User:
+    """Create a new user (admin only)."""
+    return await user_service.create_user(
+        db,
+        user_in=user_in,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+
+@router.get("/{user_id}", response_model=UserOut)
+async def get_user(
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Get a specific user by ID."""
+    # Check permissions: users can view themselves; admins can view anyone
+    user = await user_service.get_user(db, user_id)
+    if user is None:
+        raise NotFoundError(detail="User not found")
+
+    if str(current_user.id) != user_id and not current_user.is_admin:
+        raise ForbiddenError(detail="Not enough permissions")
+
+    return user
+
+
+@router.patch("/{user_id}", response_model=UserOut)
+async def update_user(
+    request: Request,
+    user_id: str,
+    user_in: UserUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Update a user's information."""
+    from uuid import UUID
+
+    uid = UUID(user_id)
+
+    # Check permissions
+    if str(current_user.id) != user_id and not current_user.is_admin:
+        raise ForbiddenError(detail="Not enough permissions")
+
+    return await user_service.update_user(
+        db,
+        user_id=uid,
+        user_in=user_in,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    request: Request,
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_admin)],
+) -> dict:
+    """Soft delete a user (admin only)."""
+    from uuid import UUID
+
+    uid = UUID(user_id)
+
+    success = await user_service.delete_user(
+        db,
+        user_id=uid,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    if not success:
+        raise NotFoundError(detail="User not found or already deleted")
+
+    return {"message": "User deleted successfully"}
+
+
+@router.post("/{user_id}/roles", status_code=status.HTTP_200_OK)
+async def assign_role_to_user(
+    request: Request,
+    user_id: str,
+    role_id: int = Query(..., description="Role ID to assign"),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_admin)],
+) -> dict:
+    """Assign a role to a user (admin only)."""
+    from uuid import UUID
+
+    uid = UUID(user_id)
+
+    success = await user_service.assign_role(
+        db,
+        user_id=uid,
+        role_id=role_id,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    if not success:
+        raise ConflictError(detail="Role already assigned or invalid")
+
+    return {"message": "Role assigned successfully"}
+
+
+@router.delete("/{user_id}/roles/{role_id}")
+async def remove_role_from_user(
+    request: Request,
+    user_id: str,
+    role_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_admin)],
+) -> dict:
+    """Remove a role from a user (admin only)."""
+    from uuid import UUID
+
+    uid = UUID(user_id)
+
+    success = await user_service.remove_role(
+        db,
+        user_id=uid,
+        role_id=role_id,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    if not success:
+        raise NotFoundError(detail="Role assignment not found")
+
+    return {"message": "Role removed successfully"}
