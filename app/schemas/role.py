@@ -1,8 +1,7 @@
 """Role Pydantic schemas."""
-from typing import Optional
-from uuid import UUID
+from typing import Optional, Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class RoleBase(BaseModel):
@@ -33,4 +32,14 @@ class RoleOut(RoleBase):
     id: int
     name: str
     description: Optional[str] = None
-    permissions: list = []
+    permissions: list[str] = []
+
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def extract_permission_names(cls, v: Any) -> list[str]:
+        """Convert Permission ORM objects to permission name strings."""
+        if not v:
+            return []
+        if isinstance(v[0], str):
+            return v
+        return [p.name for p in v]

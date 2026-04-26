@@ -16,6 +16,8 @@ A production-ready User Management Web Service built with **FastAPI**, **Postgre
          │ PostgreSQL  │          │   MongoDB   │
          │ (Users,     │          │ (Audit Log) │
          │  Roles,     │          └─────────────┘
+         │  Permissions,
+         │  Groups,
          │  Sessions)  │
          └─────────────┘
 
@@ -28,25 +30,28 @@ A production-ready User Management Web Service built with **FastAPI**, **Postgre
 ## Features
 
 ### Backend (FastAPI)
-- **User Management**: CRUD operations with soft deletes
+- **User Management**: CRUD operations with soft deletes, last_login tracking
 - **Role-Based Access Control**: Many-to-many user-role relationships
-- **JWT Authentication**: Access tokens (15 min) + refresh tokens (7 days)
+- **Granular Permission System**: 12 resource-scoped permissions + admin wildcard, role-permission associations
+- **User Groups**: Group users together, assign roles to groups for inherited permissions
+- **JWT Authentication**: Access tokens (15 min) + refresh tokens (7 days), session expiration handling
 - **Audit Logging**: All mutations logged to MongoDB asynchronously
 - **PostgreSQL Advanced Features**: Views, CTEs, Window Functions, Stored Procedures
 - **Async-First**: All database operations are async
+- **Auto-Seeding**: Idempotent startup seeding (roles → permissions → groups → users)
 
 ### Frontend (React + Vite + MUI)
-- **SPA with React Router**: Client-side routing with protected routes
-- **Redux Toolkit**: Global state management for auth & data
+- **SPA with TanStack Router**: Client-side routing with protected routes
+- **RTK Query**: Data fetching with tag-based cache invalidation
 - **Material UI (MUI)**: Professional component library
 - **React Hook Form + Zod**: Type-safe form validation
-- **Axios Interceptors**: Automatic JWT attachment to requests
-- **Role-based UI**: Dynamic component rendering based on user roles
+- **Permission-Based UI**: Granular component gating (canViewUsers, canEditUsers, canManageRoles, etc.)
 - **Responsive Design**: Mobile-friendly layout with sidebar navigation
 
 ### DevOps
 - **Dockerized**: One-command deployment with Docker Compose
-- **Full-Stack Containers**: API (8000) + Frontend (3000) + Databases
+- **Full-Stack Containers**: API (8000) + Frontend (3000) + PostgreSQL + MongoDB
+- **Deploy Script**: `deploy.sh` with keep-data (`-k`) and rebuild-only (`-r`) modes
 
 ## Prerequisites
 
@@ -62,14 +67,14 @@ cd user-management-service
 # Copy environment file
 cp .env.example .env
 
-# Start all services (API + Frontend + Databases)
-docker compose up -d
+# Full clean deploy (recommended)
+./deploy.sh
 
-# Wait for services to be ready (~30 seconds)
-docker compose ps
+# Or keep existing data
+./deploy.sh -k
 
-# Seed initial data (admin user + roles)
-docker compose exec api python scripts/seed.py
+# Or rebuild without re-pulling base images
+./deploy.sh -r
 
 # Run tests
 docker compose exec api pytest
@@ -80,6 +85,59 @@ docker compose exec api pytest
 # API docs (Swagger):     http://localhost:8000/docs
 # ReDoc:                  http://localhost:8000/redoc
 ```
+
+> **Note:** The system auto-seeds on first startup — no manual `seed.py` step needed. Default accounts:
+> - **Admin**: `admin@example.com` / password from `FIRST_SUPERUSER_PASSWORD`
+> - **Guest**: `guest@example.com` / password from `GUEST_USER_PASSWORD` (default: `guest123`)
+
+## Permission System
+
+The authorization model uses granular, resource-scoped permissions attached to roles.
+
+### Permission Names
+
+| Resource | Read | Write | Delete |
+|----------|------|-------|--------|
+| `users` | `users.read` | `users.write` | `users.delete` |
+| `roles` | `roles.read` | `roles.write` | `roles.delete` |
+| `permissions` | `permissions.read` | `permissions.write` | — |
+| `groups` | `groups.read` | `groups.write` | `groups.delete` |
+
+Plus one wildcard: **`admin`** (`resource=*`, `action=*`) — grants all permissions.
+
+### Default Role-Permission Assignments
+
+| Role | Permissions |
+|------|-------------|
+| `admin` | `admin` |
+| `editor` | `users.read`, `users.write`, `roles.read`, `permissions.read`, `groups.read`, `groups.write` |
+| `viewer` | `users.read`, `roles.read`, `permissions.read`, `groups.read` |
+| `guest` | *(none)* |
+
+### Permission Inheritance
+
+A user's effective permissions are the union of:
+1. Permissions from roles directly assigned to the user
+2. Permissions from roles assigned to any group the user belongs to
+
+### Backend: `require_permission` Dependency
+
+```python
+@router.get("/users/", dependencies=[Depends(require_permission("users.read"))])
+async def list_users(...):
+    ...
+```
+
+## User Groups
+
+Users can be organized into groups. Each group can have roles assigned, and those role permissions inherit to all group members.
+
+### Default Groups
+
+| Group | Assigned Role | Default Members |
+|-------|---------------|-----------------|
+| `admin` | `admin` | Admin user |
+| `guest` | `guest` | Guest user |
 
 ## Environment Variables
 
@@ -99,7 +157,10 @@ docker compose exec api pytest
 | `FIRST_SUPERUSER_EMAIL` | Admin user email | `admin@example.com` |
 | `FIRST_SUPERUSER_PASSWORD` | Admin user password | *(required)* |
 | `FIRST_SUPERUSER_USERNAME` | Admin username | `admin` |
-| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `http://localhost:3000,http://localhost:8080` |
+| `GUEST_USER_EMAIL` | Guest user email | `guest@example.com` |
+| `GUEST_USER_PASSWORD` | Guest user password | `guest123` |
+| `GUEST_USER_USERNAME` | Guest username | `guest` |
+| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:3000","http://localhost:8080"]` |
 
 ### Frontend (Docker-only)
 
@@ -125,30 +186,61 @@ All endpoints are prefixed with `/api/v1`.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/` | Admin | List users (paginated, filterable) |
-| POST | `/` | Admin | Create new user |
-| GET | `/{user_id}` | Self or Admin | Get user by ID |
-| PATCH | `/{user_id}` | Self or Admin | Update user fields |
-| DELETE | `/{user_id}` | Admin | Soft-delete user |
-| POST | `/{user_id}/roles` | Admin | Assign role to user |
-| DELETE | `/{user_id}/roles/{role_id}` | Admin | Remove role from user |
+| GET | `/` | `users.read` | List users (paginated, filterable, searchable) |
+| POST | `/` | `users.write` | Create new user |
+| GET | `/{user_id}` | Self or `users.read` | Get user by ID |
+| PATCH | `/{user_id}` | Self or `users.write` | Update user fields |
+| DELETE | `/{user_id}` | `users.delete` | Soft-delete user |
+| POST | `/{user_id}/roles` | `roles.write` | Assign role to user |
+| DELETE | `/{user_id}/roles/{role_id}` | `roles.write` | Remove role from user |
 
 ### Roles (`/api/v1/roles`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/` | Admin | List all roles |
-| POST | `/` | Admin | Create role |
-| DELETE | `/{role_id}` | Admin | Delete role |
+| GET | `/` | `roles.read` | List all roles |
+| POST | `/` | `roles.write` | Create role |
+| DELETE | `/{role_id}` | `roles.delete` | Delete role |
+
+### Permissions (`/api/v1/permissions`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | `permissions.read` | List all permissions |
+| POST | `/` | `permissions.write` | Create permission |
+| PATCH | `/{permission_id}` | `permissions.write` | Update permission |
+| DELETE | `/{permission_id}` | `permissions.write` | Delete permission |
+| GET | `/roles/{role_id}/permissions` | `permissions.read` | Get role permissions |
+| PUT | `/roles/{role_id}/permissions` | `permissions.write` | Set role permissions (bulk) |
+| POST | `/roles/{role_id}/permissions/{permission_id}` | `permissions.write` | Assign permission to role |
+| DELETE | `/roles/{role_id}/permissions/{permission_id}` | `permissions.write` | Remove permission from role |
+
+### Groups (`/api/v1/groups`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | `groups.read` | List all groups |
+| POST | `/` | `groups.write` | Create group |
+| PATCH | `/{group_id}` | `groups.write` | Update group |
+| DELETE | `/{group_id}` | `groups.delete` | Delete group |
+| POST | `/{group_id}/members` | `groups.write` | Add member to group |
+| DELETE | `/{group_id}/members/{user_id}` | `groups.write` | Remove member from group |
+| POST | `/{group_id}/roles/{role_id}` | `groups.write` | Assign role to group |
+| DELETE | `/{group_id}/roles/{role_id}` | `groups.write` | Remove role from group |
 
 ## Database Design
 
 ### PostgreSQL Schema
 
 **Tables:**
-- `users` — User accounts (soft-deletable, UUID primary key)
-- `roles` — Role definitions (`admin`, `editor`, `viewer`)
-- `user_roles` — Many-to-many join table
+- `users` — User accounts (soft-deletable, UUID primary key, last_login tracking)
+- `roles` — Role definitions (admin, editor, viewer, guest)
+- `user_roles` — Many-to-many user-role join table
+- `permissions` — Granular permission definitions (resource + action)
+- `role_permissions` — Many-to-many role-permission join table
+- `user_groups` — User group definitions
+- `user_group_members` — Many-to-many group-member join table
+- `user_group_roles` — Many-to-many group-role join table
 
 **Views** (`sql/views.sql`):
 - `active_users_view` — Active users with aggregated role list
@@ -168,15 +260,64 @@ Every mutating operation creates an audit document:
 ```json
 {
   "_id": "ObjectId",
-  "event_type": "user.created | user.updated | ...",
+  "event_type": "user.created | user.updated | role.assigned | group.member_added | ...",
   "actor_id": "UUID",
   "target_id": "UUID",
-  "target_type": "user | role",
+  "target_type": "user | role | group",
   "payload": { "changed_fields": [], "old_values": {}, "new_values": {} },
   "ip_address": "127.0.0.1",
   "user_agent": "FastAPI",
   "timestamp": "2025-04-16T10:30:00Z"
 }
+```
+
+## Project Structure
+
+```
+user-management-service/
+├── app/                              # Backend (FastAPI)
+│   ├── main.py                       # App entry point + lifespan (auto-seeding)
+│   ├── config.py                     # Settings from env vars
+│   ├── dependencies.py               # DI: DB sessions, current user, require_permission
+│   ├── api/v1/
+│   │   ├── router.py                 # Aggregates all v1 routes
+│   │   └── endpoints/                # auth, users, roles, permissions, groups
+│   ├── core/                         # Security (JWT, password hashing), exceptions
+│   ├── db/                           # PostgreSQL & MongoDB connections
+│   ├── models/                       # SQLAlchemy ORM models (User, Role, Permission, UserGroup)
+│   ├── schemas/                      # Pydantic request/response schemas
+│   ├── crud/                         # Generic CRUD base + specific CRUD classes
+│   └── services/                     # Business logic + audit logging + seed data
+├── user-management-frontend/         # Frontend (React + Vite + MUI)
+│   ├── src/
+│   │   ├── api/                      # RTK Query API slices (auth, users, roles, permissions, groups)
+│   │   ├── components/               # Reusable UI components (layout, dialogs)
+│   │   ├── pages/                    # Page components (dashboard, users, roles, groups, profile, login)
+│   │   ├── store/                    # Redux store
+│   │   ├── theme/                    # MUI theme configuration
+│   │   ├── types/                    # TypeScript interfaces
+│   │   ├── hooks/                    # Custom hooks (usePermissions, useAuth)
+│   │   ├── routes/                   # TanStack Router route definitions
+│   │   ├── utils/                    # Helpers (validation, permissions, format, storage)
+│   │   ├── App.tsx                   # Root component
+│   │   └── main.tsx                  # Entry point
+│   ├── Dockerfile                    # Multi-stage build (Node → Nginx)
+│   ├── nginx.conf                    # Nginx static file config
+│   ├── vite.config.ts                # Vite configuration
+│   ├── package.json                  # Frontend dependencies
+│   └── tsconfig.json                 # TypeScript configuration
+├── alembic/                          # DB migrations (4 migrations)
+│   └── versions/                     # 0001_init, 0002_last_login, 0003_permissions, 0004_user_groups
+├── sql/                              # Views, procedures, complex queries
+├── scripts/                          # Utility scripts
+├── tests/                            # Unit + integration tests
+├── docker/
+│   └── Dockerfile                    # API backend Dockerfile
+├── docker-compose.yml                # Main compose file
+├── deploy.sh                         # Full deploy script (-k keep data, -r rebuild only)
+├── pyproject.toml                    # Project metadata + tools
+├── .env.example                      # Environment template
+└── README.md                         # This file
 ```
 
 ## Running Tests
@@ -220,52 +361,6 @@ npm run test -- --run
 npm run test:ui
 ```
 
-## Project Structure
-
-```
-user-management-service/
-├── app/                          # Backend (FastAPI)
-│   ├── main.py                   # App entry point
-│   ├── config.py                 # Settings from env vars
-│   ├── dependencies.py           # DI: DB sessions, current user
-│   ├── api/v1/
-│   │   ├── router.py             # Aggregates all v1 routes
-│   │   └── endpoints/            # auth.py, users.py, roles.py
-│   ├── core/                     # Security, exceptions
-│   ├── db/                       # Postgres & MongoDB connections
-│   ├── models/                   # SQLAlchemy & Pydantic models
-│   ├── schemas/                  # Request/response schemas
-│   ├── crud/                     # Generic + specific CRUD
-│   └── services/                 # Business logic + audit
-├── user-management-frontend/     # Frontend (React + Vite + MUI)
-│   ├── src/
-│   │   ├── api/                  # Axios instance + API modules
-│   │   ├── components/           # Reusable UI components
-│   │   ├── pages/                # Page-level components
-│   │   ├── store/                # Redux Toolkit slices
-│   │   ├── theme/                # MUI theme configuration
-│   │   ├── types/                # TypeScript interfaces
-│   │   ├── utils/                # Helpers (validation, formatting)
-│   │   ├── App.tsx               # Root component
-│   │   └── main.tsx              # Entry point
-│   ├── Dockerfile                # Multi-stage build (Node → Nginx)
-│   ├── nginx.conf                # Nginx static file config
-│   ├── vite.config.ts            # Vite configuration
-│   ├── package.json              # Frontend dependencies
-│   └── tsconfig.json             # TypeScript configuration
-├── alembic/                      # DB migrations
-├── sql/                          # Views, procedures, queries
-├── scripts/                      # seed.py, export_users.py
-├── tests/                        # Unit + integration tests
-├── docker/
-│   ├── Dockerfile                # API backend Dockerfile
-│   └── docker-compose.yml        # (legacy — use root docker-compose.yml)
-├── docker-compose.yml            # Main compose file (root)
-├── pyproject.toml                # Project metadata + tools
-├── .env.example                  # Environment template
-└── README.md                     # This file
-```
-
 ## Development (Local)
 
 ### Backend (FastAPI)
@@ -279,9 +374,6 @@ docker compose up -d postgres mongodb
 
 # Run migrations
 alembic upgrade head
-
-# Seed admin user
-python scripts/seed.py
 
 # Run dev server
 uvicorn app.main:app --reload --port 8000
@@ -318,6 +410,15 @@ npm run preview
 
 ## Quick Reference
 
+### Deploy Script
+
+| Command | Description |
+|---|---|
+| `./deploy.sh` | Full clean rebuild — removes containers, images, volumes, data, pulls fresh base images |
+| `./deploy.sh -k` | Rebuild keeping existing data volumes (still pulls fresh base images) |
+| `./deploy.sh -r` | Rebuild only — skip base image pulls, keep data (uses local cache) |
+| `./deploy.sh -k -r` | Combined: keep data + skip base image pulls |
+
 ### Docker Compose
 
 | Command | Description |
@@ -328,7 +429,7 @@ npm run preview
 | `docker compose logs -f api` | Tail backend API logs |
 | `docker compose logs -f frontend` | Tail frontend logs |
 | `docker compose ps` | Check service status |
-| `docker compose down -v` | Stop services & delete volumes (⚠️ drops all data) |
+| `docker compose down -v` | Stop services & delete volumes (drops all data) |
 | `docker compose stop` | Stop services (keeps volumes) |
 | `docker compose restart` | Restart all services |
 
@@ -337,10 +438,9 @@ npm run preview
 | Command | Description |
 |---|---|
 | `docker compose exec api alembic history` | Show migration history |
-| `docker compose exec api python scripts/seed.py` | Seed admin + roles (idempotent) |
+| `docker compose exec api alembic upgrade head` | Run migrations manually |
 | `docker compose exec api pytest tests/unit/ -v` | Run unit tests only |
 | `docker compose exec api pytest tests/integration/ -v` | Run integration tests |
-| `docker compose exec api alembic upgrade head` | Run migrations manually |
 
 ### Frontend Commands
 
