@@ -28,10 +28,19 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from '@tanstack/react-router';
-import { useGetRolesQuery, useAssignRoleMutation, useRemoveRoleMutation, useGetUsersQuery } from '@/api';
-import { isAdmin, canManageRoles } from '@/utils/permissions';
+import {
+  useGetRolesQuery,
+  useAssignRoleMutation,
+  useRemoveRoleMutation,
+  useGetUsersQuery,
+  useGetPermissionsQuery,
+  useGetRolePermissionsQuery,
+  useAssignPermissionToRoleMutation,
+  useRemovePermissionFromRoleMutation,
+} from '@/api';
+import { isAdmin, canManageRoles, canManagePermissions } from '@/utils/permissions';
 import { useAppSelector } from '@/hooks.redux';
-import { Role, User } from '@/types';
+import { Permission, Role, User } from '@/types';
 import { useSnackbar } from 'notistack';
 
 // Import existing dialogs if needed (reuse confirm pattern)
@@ -51,6 +60,17 @@ export function RoleDetailPage(props: { roleId?: string }) {
   // Mutations
   const [assignRole, { isLoading: assigning }] = useAssignRoleMutation();
   const [removeRole, { isLoading: removing }] = useRemoveRoleMutation();
+  const [assignPermission, { isLoading: assigningPerm }] = useAssignPermissionToRoleMutation();
+  const [removePermission, { isLoading: removingPerm }] = useRemovePermissionFromRoleMutation();
+
+  // Permission queries
+  const { data: permData, isLoading: permsLoading } = useGetPermissionsQuery();
+  const allPermissions = permData?.items ?? [];
+  const { data: rolePermissions = [], isLoading: rolePermsLoading } = useGetRolePermissionsQuery(
+    parseInt(roleId, 10),
+    { skip: !roleId }
+  );
+  const rolePermIds = new Set(rolePermissions.map((p: Permission) => p.id));
 
   // Local state
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -128,6 +148,35 @@ export function RoleDetailPage(props: { roleId?: string }) {
     setUserToRemove(user);
     setShowRemoveConfirm(true);
   };
+
+  // Toggle permission for this role
+  const handlePermissionToggle = async (permissionId: number, currentlyAssigned: boolean) => {
+    if (!role) return;
+    try {
+      if (currentlyAssigned) {
+        await removePermission({ roleId: role.id, permissionId }).unwrap();
+        enqueueSnackbar('Permission removed', { variant: 'success' });
+      } else {
+        await assignPermission({ roleId: role.id, permissionId }).unwrap();
+        enqueueSnackbar('Permission assigned', { variant: 'success' });
+      }
+    } catch (err: any) {
+      enqueueSnackbar(err.data?.detail || 'Failed to update permission', { variant: 'error' });
+    }
+  };
+
+  // Group permissions by resource
+  const permissionsByResource = useMemo(() => {
+    const map: Record<string, Permission[]> = {};
+    for (const p of allPermissions) {
+      const r = p.resource;
+      if (!map[r]) map[r] = [];
+      map[r].push(p);
+    }
+    return map;
+  }, [allPermissions]);
+
+  const canManagePerms = canManagePermissions(currentUser);
 
   // Confirm remove user from role
   const confirmRemoveUser = async () => {
@@ -327,6 +376,42 @@ export function RoleDetailPage(props: { roleId?: string }) {
                 Add to Role
               </Button>
             </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Permissions section */}
+      {canManagePerms && (
+        <Box sx={{ mb: 4 }}>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="h6" gutterBottom>Permissions</Typography>
+          {permsLoading || rolePermsLoading ? (
+            <CircularProgress size={20} />
+          ) : (
+            Object.entries(permissionsByResource).map(([resource, perms]) => (
+              <Paper key={resource} variant="outlined" sx={{ p: 2, mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, textTransform: 'capitalize', fontWeight: 600 }}>
+                  {resource}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {perms.map((perm) => {
+                    const assigned = rolePermIds.has(perm.id);
+                    const isAdminPerm = perm.name === 'admin';
+                    return (
+                      <Chip
+                        key={perm.id}
+                        label={`${perm.action}${perm.description ? ` — ${perm.description}` : ''}`}
+                        color={assigned ? 'primary' : 'default'}
+                        variant={assigned ? 'filled' : 'outlined'}
+                        onClick={() => handlePermissionToggle(perm.id, assigned)}
+                        disabled={isAdminPerm && assigned} // Don't allow removing admin wildcard
+                        sx={{ cursor: 'pointer' }}
+                      />
+                    );
+                  })}
+                </Box>
+              </Paper>
+            ))
           )}
         </Box>
       )}

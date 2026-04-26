@@ -5,6 +5,7 @@ from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.postgres import Base
+from app.models.permission import role_permissions
 
 
 class Role(Base):
@@ -22,6 +23,12 @@ class Role(Base):
     users: Mapped[list["User"]] = relationship(
         "User",
         secondary="user_roles",
+        back_populates="roles",
+        lazy="selectin",
+    )
+    permissions: Mapped[list["Permission"]] = relationship(
+        "Permission",
+        secondary=role_permissions,
         back_populates="roles",
         lazy="selectin",
     )

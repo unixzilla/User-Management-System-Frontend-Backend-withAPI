@@ -33,3 +33,4 @@ class RoleOut(RoleBase):
     id: int
     name: str
     description: Optional[str] = None
+    permissions: list = []

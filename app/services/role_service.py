@@ -11,7 +11,7 @@ from app.schemas.role import RoleCreate, RoleUpdate
 from app.services.audit_service import audit_service
 from app.core.exceptions import ConflictError, NotFoundError
 
-INITIAL_ROLES = ["admin", "editor", "viewer"]
+INITIAL_ROLES = ["admin", "editor", "viewer", "guest"]
 
 
 class RoleService:

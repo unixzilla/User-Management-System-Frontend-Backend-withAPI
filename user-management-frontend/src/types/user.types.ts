@@ -7,6 +7,7 @@ export interface User {
   is_verified: boolean;
   created_at: string;
   roles: string[];
+  permissions: string[];
 }
 
 export interface UserCreate {

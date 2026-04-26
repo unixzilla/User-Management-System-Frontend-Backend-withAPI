@@ -241,4 +241,66 @@ class UserService:
         return success
 
 
+    async def seed_default_users(
+        self, db: AsyncSession, group_ids: dict[str, int | None]
+    ) -> None:
+        """Ensure default admin and guest users exist (idempotent).
+
+        Creates admin and guest users with their roles assigned.
+        Adds them to their respective groups.
+        """
+        from app.config import settings
+        from app.core.security import hash_password
+        from app.crud.group import group as group_crud
+
+        admin_role = await self.role_crud.get_by_name(db, "admin")
+        guest_role = await self.role_crud.get_by_name(db, "guest")
+
+        # --- Admin user ---
+        admin_user = await self.user_crud.get_by_email(db, settings.first_superuser_email)
+        if admin_user is None:
+            admin_user = await self.user_crud.create_with_password(
+                db,
+                email=settings.first_superuser_email,
+                username=settings.first_superuser_username,
+                password=settings.first_superuser_password,
+            )
+            admin_user.full_name = "System Administrator"
+            admin_user.is_verified = True
+            await db.flush()
+            await db.refresh(admin_user)
+
+        # Ensure admin user has admin role
+        if admin_role and admin_role not in admin_user.roles:
+            await self.user_crud.assign_role(db, user_id=admin_user.id, role_id=admin_role.id)
+
+        # Add admin to admin group
+        admin_group_id = group_ids.get("admin")
+        if admin_group_id is not None:
+            await group_crud.add_member(db, group_id=admin_group_id, user_id=admin_user.id)
+
+        # --- Guest user ---
+        guest_user = await self.user_crud.get_by_email(db, settings.guest_user_email)
+        if guest_user is None:
+            guest_user = await self.user_crud.create_with_password(
+                db,
+                email=settings.guest_user_email,
+                username=settings.guest_user_username,
+                password=settings.guest_user_password,
+            )
+            guest_user.full_name = "Guest User"
+            guest_user.is_verified = True
+            await db.flush()
+            await db.refresh(guest_user)
+
+        # Ensure guest user has guest role
+        if guest_role and guest_role not in guest_user.roles:
+            await self.user_crud.assign_role(db, user_id=guest_user.id, role_id=guest_role.id)
+
+        # Add guest to guest group
+        guest_group_id = group_ids.get("guest")
+        if guest_group_id is not None:
+            await group_crud.add_member(db, group_id=guest_group_id, user_id=guest_user.id)
+
+
 user_service = UserService()

@@ -38,6 +38,18 @@ export const roleUpdateSchema = z.object({
 
 export type RoleUpdateSchema = z.infer<typeof roleUpdateSchema>;
 
+export const groupCreateSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name too long'),
+  description: z.string().max(255, 'Description too long').optional().nullable(),
+});
+export type GroupCreateSchema = z.infer<typeof groupCreateSchema>;
+
+export const groupUpdateSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  description: z.string().max(255).optional().nullable(),
+});
+export type GroupUpdateSchema = z.infer<typeof groupUpdateSchema>;
+
 export const profileUpdateSchema = z.object({
   full_name: z.string().optional().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),

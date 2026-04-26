@@ -7,6 +7,7 @@ from sqlalchemy import Boolean, DateTime, String, Text, UUID, ForeignKey, Table,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.postgres import Base
+from app.models.group import user_group_members
 
 # Association table for many-to-many user-role relationship
 user_roles = Table(
@@ -73,6 +74,12 @@ class User(Base):
         back_populates="users",
         lazy="selectin",
     )
+    groups: Mapped[list["UserGroup"]] = relationship(
+        "UserGroup",
+        secondary=user_group_members,
+        back_populates="members",
+        lazy="selectin",
+    )
 
     @property
     def is_deleted(self) -> bool:
@@ -81,5 +88,9 @@ class User(Base):
 
     @property
     def is_admin(self) -> bool:
-        """Check if user has admin role."""
-        return any(role.name == "admin" for role in self.roles)
+        """Check if user has the admin permission (via any role)."""
+        for role in self.roles:
+            for perm in role.permissions:
+                if perm.name == "admin":
+                    return True
+        return False

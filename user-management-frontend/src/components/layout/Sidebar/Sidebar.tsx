@@ -13,6 +13,7 @@ import {
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import GroupIcon from '@mui/icons-material/Group';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { useAppSelector } from '@/hooks.redux';
@@ -24,6 +25,7 @@ const MENU_ITEMS = [
   { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
   { label: 'Users', path: '/users', icon: <PeopleIcon />, adminOnly: true },
   { label: 'Roles', path: '/roles', icon: <AdminPanelSettingsIcon />, adminOnly: true },
+  { label: 'Groups', path: '/groups', icon: <GroupIcon />, adminOnly: true },
 ];
 
 interface SidebarProps {

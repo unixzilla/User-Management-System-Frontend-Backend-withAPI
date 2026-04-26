@@ -1,1 +1,4 @@
-# Models module
+from app.models.user import User  # noqa
+from app.models.role import Role  # noqa
+from app.models.permission import Permission  # noqa
+from app.models.group import UserGroup  # noqa

@@ -62,11 +62,21 @@ class UserOut(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
     roles: list = []  # Will be serialized to list of role names
+    permissions: list = []  # Will be serialized to list of permission names
 
     @field_serializer("roles")
     def serialize_roles(self, roles: list) -> list[str]:
         """Convert Role objects to list of role names."""
         return [role.name for role in roles] if roles else []
+
+    @field_serializer("permissions")
+    def serialize_permissions(self, permissions: list) -> list[str]:
+        """Collect unique permissions from all roles."""
+        perm_names: set[str] = set()
+        for role in self.roles:
+            for perm in role.permissions:
+                perm_names.add(perm.name)
+        return sorted(perm_names)
 
 
 class UserInDBBase(UserBase):

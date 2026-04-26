@@ -3,7 +3,7 @@ export interface ApiError {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[];
+  items: T[];
   total: number;
   skip: number;
   limit: number;

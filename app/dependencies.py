@@ -1,15 +1,17 @@
 """FastAPI dependencies: database sessions, current user, etc."""
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.security import decode_token
 from app.db.postgres import get_async_session
 from app.db.mongo import get_mongo_collection
 from app.models.user import User
+from app.models.role import Role
 from app.schemas.token import TokenPayload
 from app.core.exceptions import UnauthorizedError, ForbiddenError
 
@@ -46,10 +48,65 @@ async def get_current_user(
     return user
 
 
-async def get_current_active_admin(
-    current_user: User = Depends(get_current_user),
+async def get_current_user_with_permissions(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Ensure the current user has admin role."""
+    """Get the current user with roles and permissions eagerly loaded."""
+    token_data = decode_token(token)
+    if token_data is None:
+        raise UnauthorizedError(detail="Could not validate credentials")
+
+    user_id = token_data.get("sub")
+    if user_id is None:
+        raise UnauthorizedError(detail="Invalid token payload")
+
+    result = await db.execute(
+        select(User)
+        .where(User.id == user_id)
+        .options(
+            selectinload(User.roles).selectinload(Role.permissions),
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise UnauthorizedError(detail="User not found")
+    if not user.is_active:
+        raise ForbiddenError(detail="Inactive user")
+    return user
+
+
+async def get_current_active_admin(
+    current_user: User = Depends(get_current_user_with_permissions),
+) -> User:
+    """Ensure the current user has admin permission."""
     if not current_user.is_admin:
         raise ForbiddenError(detail="Admin privileges required")
     return current_user
+
+
+def require_permission(permission: str) -> Callable:
+    """Dependency factory: require a specific permission (or 'admin' wildcard).
+
+    Usage:
+        @router.get("/users/", dependencies=[Depends(require_permission("users.read"))])
+    """
+
+    async def _check(
+        current_user: User = Depends(get_current_user_with_permissions),
+    ) -> User:
+        perm_names: set[str] = set()
+        for role in current_user.roles:
+            for p in role.permissions:
+                perm_names.add(p.name)
+                if p.name == "admin":
+                    return current_user
+
+        if permission not in perm_names:
+            raise ForbiddenError(
+                detail=f"Missing required permission: {permission}"
+            )
+        return current_user
+
+    return _check

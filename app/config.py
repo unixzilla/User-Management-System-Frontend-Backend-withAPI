@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     first_superuser_password: str = Field(..., alias="FIRST_SUPERUSER_PASSWORD")
     first_superuser_username: str = Field("admin", alias="FIRST_SUPERUSER_USERNAME")
 
+    # Initial Guest
+    guest_user_email: str = Field("guest@example.com", alias="GUEST_USER_EMAIL")
+    guest_user_password: str = Field("guest123", alias="GUEST_USER_PASSWORD")
+    guest_user_username: str = Field("guest", alias="GUEST_USER_USERNAME")
+
     @property
     def postgres_dsn(self) -> str:
         """Construct async PostgreSQL DSN."""
