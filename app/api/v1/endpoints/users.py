@@ -1,5 +1,6 @@
 """User CRUD endpoints."""
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from app.db.postgres import get_async_session
 from app.services.user_service import user_service
 from app.models.user import User
 from app.models.role import Role
-from app.schemas.user import UserCreate, UserUpdate, UserOut
+from app.schemas.user import UserCreate, UserUpdate, UserOut, PaginatedResponse
 from app.dependencies import get_current_user, get_current_active_admin, get_db
 from app.core.exceptions import NotFoundError, ConflictError, ForbiddenError
 from app.core.security import decode_token
@@ -18,19 +19,21 @@ from app.crud.role import role as role_crud
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/", response_model=list[UserOut])
+@router.get("/", response_model=PaginatedResponse[UserOut])
 async def list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_active_admin)],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     active_only: bool = Query(False),
-) -> list[User]:
+    search: str | None = Query(None, description="Search by email or username"),
+) -> dict:
     """List all users (admin only)."""
     users = await user_service.list_users(
-        db, skip=skip, limit=limit, active_only=active_only
+        db, skip=skip, limit=limit, active_only=active_only, search=search
     )
-    return users
+    total = await user_service.count_users(db, active_only=active_only, search=search)
+    return {"items": users, "total": total, "skip": skip, "limit": limit}
 
 
 @router.get("/me", response_model=UserOut)
@@ -86,7 +89,6 @@ async def update_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     """Update a user's information."""
-    from uuid import UUID
 
     uid = UUID(user_id)
 
@@ -112,7 +114,6 @@ async def delete_user(
     current_user: Annotated[User, Depends(get_current_active_admin)],
 ) -> dict:
     """Soft delete a user (admin only)."""
-    from uuid import UUID
 
     uid = UUID(user_id)
 
@@ -139,7 +140,6 @@ async def assign_role_to_user(
     role_id: int = Query(..., description="Role ID to assign"),
 ) -> dict:
     """Assign a role to a user (admin only)."""
-    from uuid import UUID
 
     uid = UUID(user_id)
 
@@ -167,7 +167,6 @@ async def remove_role_from_user(
     current_user: Annotated[User, Depends(get_current_active_admin)],
 ) -> dict:
     """Remove a role from a user (admin only)."""
-    from uuid import UUID
 
     uid = UUID(user_id)
 

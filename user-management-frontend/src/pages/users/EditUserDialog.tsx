@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -12,10 +10,8 @@ import {
   Switch,
   FormControlLabel,
   Chip,
-  IconButton,
   Divider,
   Typography,
-  Paper,
   CircularProgress,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
@@ -40,6 +36,9 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
   const [removeRole, { isLoading: removing }] = useRemoveRoleMutation();
   const { data: allRoles = [], isLoading: rolesLoading } = useGetRolesQuery({});
 
+  // Local copy of user roles for instant UI updates after assign/remove
+  const [userRoles, setUserRoles] = useState<string[]>(user.roles);
+
   const {
     register,
     control,
@@ -57,14 +56,13 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
     },
   });
 
-  // Compute current and available roles based on user's role names
   const currentRoles = React.useMemo(() => {
-    return allRoles.filter((role) => user.roles?.includes(role.name));
-  }, [allRoles, user.roles]);
+    return allRoles.filter((role) => userRoles.includes(role.name));
+  }, [allRoles, userRoles]);
 
   const availableRoles = React.useMemo(() => {
-    return allRoles.filter((role) => !user.roles?.includes(role.name));
-  }, [allRoles, user.roles]);
+    return allRoles.filter((role) => !userRoles.includes(role.name));
+  }, [allRoles, userRoles]);
 
   const [selectedRoleToAdd, setSelectedRoleToAdd] = useState<number | ''>('');
 
@@ -78,6 +76,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
         is_verified: user.is_verified,
       });
       setSelectedRoleToAdd('');
+      setUserRoles(user.roles);
     }
   }, [open, user, reset]);
 
@@ -96,11 +95,12 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
     onClose();
   };
 
-  // Add role to user
   const handleAddRole = async () => {
     if (!selectedRoleToAdd) return;
+    const role = allRoles.find((r) => r.id === selectedRoleToAdd);
     try {
       await assignRole({ userId: user.id, roleId: selectedRoleToAdd as number }).unwrap();
+      if (role) setUserRoles((prev) => [...prev, role.name]);
       enqueueSnackbar('Role assigned successfully', { variant: 'success' });
       setSelectedRoleToAdd('');
     } catch (err: any) {
@@ -108,10 +108,11 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
     }
   };
 
-  // Remove role from user
   const handleRemoveRole = async (roleId: number) => {
+    const role = allRoles.find((r) => r.id === roleId);
     try {
       await removeRole({ userId: user.id, roleId }).unwrap();
+      if (role) setUserRoles((prev) => prev.filter((name) => name !== role.name));
       enqueueSnackbar('Role removed successfully', { variant: 'success' });
     } catch (err: any) {
       enqueueSnackbar(err.data?.detail || 'Failed to remove role', { variant: 'error' });

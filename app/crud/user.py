@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -51,6 +51,7 @@ class CRUDUser(CRUDBase):
         skip: int = 0,
         limit: int = 100,
         active_only: bool = False,
+        search: str | None = None,
     ) -> list[User]:
         """Get multiple users with their roles."""
         query = select(User).options(selectinload(User.roles))
@@ -58,9 +59,34 @@ class CRUDUser(CRUDBase):
         if active_only:
             query = query.where(User.is_active == True, User.deleted_at == None)
 
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(
+                User.email.ilike(pattern) | User.username.ilike(pattern)
+            )
+
         query = query.offset(skip).limit(limit)
         result = await db.execute(query)
         return result.scalars().all()
+
+    async def count_users(
+        self,
+        db: AsyncSession,
+        *,
+        active_only: bool = False,
+        search: str | None = None,
+    ) -> int:
+        """Get total count of users."""
+        query = select(func.count()).select_from(User)
+        if active_only:
+            query = query.where(User.is_active == True, User.deleted_at == None)
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(
+                User.email.ilike(pattern) | User.username.ilike(pattern)
+            )
+        result = await db.execute(query)
+        return result.scalar_one()
 
     async def create_with_password(
         self, db: AsyncSession, *, email: str, username: str, password: str

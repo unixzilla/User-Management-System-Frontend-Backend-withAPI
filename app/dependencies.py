@@ -50,6 +50,6 @@ async def get_current_active_admin(
     current_user: User = Depends(get_current_user),
 ) -> User:
     """Ensure the current user has admin role."""
-    # Admin check - in real app, check user.roles relationship
-    # For simplicity, we check if user is active (admin check done in endpoint via role service)
+    if not current_user.is_admin:
+        raise ForbiddenError(detail="Admin privileges required")
     return current_user

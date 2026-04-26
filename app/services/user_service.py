@@ -83,11 +83,22 @@ class UserService:
         skip: int = 0,
         limit: int = 100,
         active_only: bool = False,
+        search: str | None = None,
     ) -> List[User]:
         """List users with optional filters."""
         return await self.user_crud.get_multi_with_roles(
-            db, skip=skip, limit=limit, active_only=active_only
+            db, skip=skip, limit=limit, active_only=active_only, search=search
         )
+
+    async def count_users(
+        self,
+        db: AsyncSession,
+        *,
+        active_only: bool = False,
+        search: str | None = None,
+    ) -> int:
+        """Get total count of users."""
+        return await self.user_crud.count_users(db, active_only=active_only, search=search)
 
     async def update_user(
         self,

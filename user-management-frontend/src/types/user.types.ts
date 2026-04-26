@@ -29,10 +29,11 @@ export interface UserListParams {
   skip?: number;
   limit?: number;
   active_only?: boolean;
+  search?: string;
 }
 
 export interface PaginatedUserResponse {
-  users: User[];
+  items: User[];
   total: number;
   skip: number;
   limit: number;

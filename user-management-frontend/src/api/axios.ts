@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { storage } from '@/utils/storage';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const API_PREFIX = '/api/v1';
@@ -8,9 +9,8 @@ const axiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor: inject access token
 axiosInstance.interceptors.request.use((config) => {
-  const accessToken = localStorage.getItem('access_token');
+  const accessToken = storage.getAccessToken();
   if (accessToken && config.headers) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }

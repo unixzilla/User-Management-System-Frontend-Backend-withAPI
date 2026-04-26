@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -47,7 +45,8 @@ export function RoleDetailPage(props: { roleId?: string }) {
 
   // Queries
   const { data: allRoles = [], isLoading: rolesLoading } = useGetRolesQuery({});
-  const { data: allUsers = [], isLoading: usersLoading } = useGetUsersQuery({});
+  const { data: usersData, isLoading: usersLoading } = useGetUsersQuery({});
+  const allUsers = usersData?.items ?? [];
 
   // Mutations
   const [assignRole, { isLoading: assigning }] = useAssignRoleMutation();

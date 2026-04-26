@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
 import { useDeleteUserMutation } from '@/api';

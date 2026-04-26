@@ -1,8 +1,10 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
-import { User, TokenPair, LoginRequest } from '@/types';
+import { User, LoginRequest } from '@/types';
 import { useAppSelector, useAppDispatch } from '@/hooks.redux';
-import { setCredentials, logout as logoutAction } from '@/store/authSlice';
+import { setCredentials } from '@/store/authSlice';
 import { useLoginMutation, useLogoutMutation } from '@/api';
+import { storage } from '@/utils/storage';
+import axiosInstance from '@/api/axios';
 
 interface AuthContextType {
   user: User | null;
@@ -42,26 +44,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authState = useAppSelector((s) => s.auth);
 
   useEffect(() => {
-    // Hydrate Redux store from localStorage on mount
-    const token = localStorage.getItem('accessToken');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        dispatchRedux(
-          setCredentials({
-            user,
-            tokens: {
-              access_token: token,
-              refresh_token: localStorage.getItem('refreshToken') || '',
-              token_type: 'bearer',
-            },
-          })
-        );
-        dispatch({ type: 'SET_AUTHENTICATED' });
-      } catch {
-        dispatch({ type: 'SET_NOT_AUTHENTICATED' });
-      }
+    const token = storage.getAccessToken();
+    const user = storage.getUser();
+    if (token && user) {
+      dispatchRedux(
+        setCredentials({
+          user,
+          tokens: {
+            access_token: token,
+            refresh_token: storage.getRefreshToken() || '',
+            token_type: 'bearer',
+          },
+        })
+      );
+      dispatch({ type: 'SET_AUTHENTICATED' });
     } else {
       dispatch({ type: 'SET_NOT_AUTHENTICATED' });
     }
@@ -71,13 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'SET_LOADING' });
     try {
       const result = await loginMutation(credentials).unwrap();
-      const userRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/users/me`, {
-        headers: { Authorization: `Bearer ${result.access_token}` },
-      }).then((r) => r.json());
-      const user: User = userRes;
-      localStorage.setItem('accessToken', result.access_token);
-      localStorage.setItem('refreshToken', result.refresh_token);
-      localStorage.setItem('user', JSON.stringify(user));
+      storage.setAccessToken(result.access_token);
+      storage.setRefreshToken(result.refresh_token);
+      const { data: user } = await axiosInstance.get<User>('/users/me');
+      storage.setUser(user);
       dispatchRedux(setCredentials({ user, tokens: result }));
       dispatch({ type: 'SET_AUTHENTICATED' });
     } catch (err) {

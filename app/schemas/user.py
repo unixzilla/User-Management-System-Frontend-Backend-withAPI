@@ -1,9 +1,19 @@
 """User Pydantic schemas for request/response validation."""
 from datetime import datetime
-from typing import Optional
+from typing import Generic, Optional, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_serializer
+
+T = TypeVar("T")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Generic paginated response wrapper."""
+    items: list[T]
+    total: int
+    skip: int
+    limit: int
 
 
 class UserBase(BaseModel):

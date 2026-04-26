@@ -1,14 +1,15 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
   Button,
   Paper,
   Container,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import { UserTable } from '@/components/table/UserTable/UserTable';
 import { useGetUsersQuery } from '@/api';
 import { User } from '@/types';
@@ -25,12 +26,25 @@ export function UsersPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const debounceRef = useRef<number>(0);
 
-  const { data: users = [], isLoading } = useGetUsersQuery({
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchInput]);
+
+  const { data, isLoading } = useGetUsersQuery({
     skip: page * rowsPerPage,
     limit: rowsPerPage,
+    search: search || undefined,
   });
-  const totalCount = users.length;
+  const users = data?.items ?? [];
+  const totalCount = data?.total ?? 0;
 
   const handlePageChange = (newPage: number, newRowsPerPage: number) => {
     setPage(newPage);
@@ -63,6 +77,23 @@ export function UsersPage() {
       </Box>
 
       <Paper sx={{ p: 2 }}>
+        <TextField
+          fullWidth
+          placeholder="Search by username or email..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
+          }}
+          size="small"
+          sx={{ mb: 2 }}
+        />
         <UserTable
           users={users}
           loading={isLoading}

@@ -1,9 +1,9 @@
 import { baseApi } from './baseApi';
-import { User, UserCreate, UserUpdate, UserListParams } from '@/types';
+import { User, UserCreate, UserUpdate, UserListParams, PaginatedUserResponse } from '@/types';
 
 export const userApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getUsers: builder.query<User[], UserListParams>({
+    getUsers: builder.query<PaginatedUserResponse, UserListParams>({
       query: (params) => ({
         url: '/users/',
         params,
