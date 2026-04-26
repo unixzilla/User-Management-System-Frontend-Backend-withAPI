@@ -25,3 +25,11 @@ export {
   useAssignRoleToGroupMutation,
   useRemoveRoleFromGroupMutation,
 } from './groupApi';
+export {
+  resourceApi,
+  useGetResourcesQuery,
+  useGetResourceQuery,
+  useCreateResourceMutation,
+  useUpdateResourceMutation,
+  useDeleteResourceMutation,
+} from './resourceApi';

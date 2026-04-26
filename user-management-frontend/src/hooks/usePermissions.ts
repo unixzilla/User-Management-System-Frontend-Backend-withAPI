@@ -9,6 +9,7 @@ import {
   canManageRoles,
   canManagePermissions,
   canManageGroups,
+  canManageResources,
 } from '@/utils/permissions';
 
 export function usePermissions() {
@@ -26,5 +27,6 @@ export function usePermissions() {
     canManageRoles: () => canManageRoles(user),
     canManagePermissions: () => canManagePermissions(user),
     canManageGroups: () => canManageGroups(user),
+    canManageResources: () => canManageResources(user),
   };
 }

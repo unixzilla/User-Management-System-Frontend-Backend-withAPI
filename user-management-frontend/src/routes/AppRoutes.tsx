@@ -6,6 +6,8 @@ import { RolesPage } from '../pages/roles/RolesPage';
 import { RoleDetailPage } from '../pages/roles/RoleDetailPage';
 import { GroupsPage } from '../pages/groups/GroupsPage';
 import { GroupDetailPage } from '../pages/groups/GroupDetailPage';
+import { PermissionsPage } from '../pages/permissions/PermissionsPage';
+import { ResourcesPage } from '../pages/resources/ResourcesPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { UnauthorizedPage } from '../pages/unauthorized/UnauthorizedPage';
 import { NotFoundPage } from '../pages/not-found/NotFoundPage';
@@ -77,6 +79,20 @@ const groupDetailRoute = createRoute({
   component: GroupDetailPage,
 });
 
+// Permissions page
+const permissionsRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/permissions',
+  component: PermissionsPage,
+});
+
+// Resources page
+const resourcesRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/resources',
+  component: ResourcesPage,
+});
+
 // Profile page
 const profileRoute = createRoute({
   getParentRoute: () => layoutRoute,
@@ -106,6 +122,8 @@ const layoutWithChildren = layoutRoute.addChildren([
   roleDetailRoute,
   groupsRoute,
   groupDetailRoute,
+  permissionsRoute,
+  resourcesRoute,
   profileRoute,
 ]);
 

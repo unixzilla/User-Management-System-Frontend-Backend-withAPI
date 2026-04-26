@@ -47,7 +47,10 @@ src/
 │   ├── baseApi.ts                # RTK Query base
 │   ├── authApi.ts                # Login, refresh, logout
 │   ├── userApi.ts                # User CRUD
-│   └── roleApi.ts                # Role CRUD
+│   ├── roleApi.ts                # Role CRUD
+│   ├── groupApi.ts               # Group CRUD
+│   ├── permissionApi.ts          # Permission CRUD
+│   └── resourceApi.ts            # Resource CRUD
 ├── store/                        # Redux store
 │   ├── authSlice.ts              # Auth reducer
 │   ├── authMiddleware.ts         # Token refresh
@@ -58,7 +61,7 @@ src/
 │   └── usePermissions.ts         # RBAC helpers
 ├── components/
 │   ├── auth/ProtectedRoute/      # Route guard
-│   ├── common/                   # Loading, ConfirmDialog, etc.
+│   ├── common/                   # Loading, ConfirmDialog, etc
 │   ├── layout/                   # Header, Sidebar
 │   ├── shared/RoleBadge/         # Role chip
 │   └── table/
@@ -69,7 +72,10 @@ src/
 │   ├── login/                    # Login
 │   ├── dashboard/                # Dashboard
 │   ├── users/                    # User CRUD (admin)
-│   ├── roles/                    # Role CRUD (admin)
+│   ├── roles/                    # Role CRUD + detail
+│   ├── groups/                   # Group CRUD + detail
+│   ├── permissions/              # Permission CRUD
+│   ├── resources/                # Resource CRUD
 │   ├── profile/                  # Self profile
 │   ├── unauthorized/             # 403
 │   └── not-found/                # 404
@@ -84,29 +90,60 @@ src/
 ### Authentication
 - JWT with access token (15 min) + refresh token (7 days)
 - Auto-refresh on 401
+- Session expiration detection with automatic logout
 - Persistent via localStorage
 
 ### RBAC
 
-| Role | Dashboard | Users | Roles | Profile |
-|---|---|---|---|---|
-| **admin** | ✅ | ✅ Full | ✅ Full | Edit all |
-| **editor** | ✅ | Limited | ❌ | Edit self |
-| **viewer** | ✅ | View only | ❌ | View self |
+System uses a 4-tier RBAC model: **User → Role → Group → Permissions**.
+
+| Role | Dashboard | Users | Roles | Groups | Permissions | Resources | Profile |
+|---|---|---|---|---|---|---|---|
+| **admin** | ✅ | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Edit all |
+| **editor** | ✅ | Limited | ❌ | ❌ | ❌ | ❌ | Edit self |
+| **viewer** | ✅ | View only | ❌ | ❌ | ❌ | ❌ | View self |
 
 ### User Management (Admin)
-- Paginated table with role badges
+- Paginated table with role badges and group badges
 - Create / Edit / Delete users
-- Assign or remove roles per user
+- Assign or remove roles and groups per user
+- Bidirectional role ↔ user membership management
+- Self-deletion prevention
 
 ### Role Management (Admin)
 - List all roles
-- Create new roles
-- Delete roles (admin protected)
+- Create / Edit / Delete roles
+- Bidirectional user ↔ role membership on role detail page
+- Admin role protected from modification and deletion
+
+### Group Management (Admin)
+- List all groups with member counts
+- Create / Edit / Delete groups
+- Manage group members on group detail page
+- Admin and Guest groups protected from modification and deletion
+
+### Permission Management (Admin)
+- CRUD for permissions with resource and action fields
+- Resource dropdown dynamically populated from Resources API
+- Admin permission protected from modification and deletion
+
+### Resource Management (Admin)
+- CRUD for resources that map to the `resource` field in permissions
+- Cascade delete: removing a resource also deletes all associated permissions
+- Seeded resources (users, roles, permissions, groups) protected from modification and deletion
 
 ### Profile
-- View own details
-- Edit own information
+- View own details (roles, groups, permissions)
+- Edit own information and password
+- `last_login` timestamp display
+
+### Admin Entity Protection
+The following seeded entities cannot be deleted or modified via the UI or API:
+- Permission: `admin`
+- Role: `admin`
+- Groups: `admin`, `guest`
+- Resources: `users`, `roles`, `permissions`, `groups`
+- User: system administrator (by email)
 
 ## Development
 

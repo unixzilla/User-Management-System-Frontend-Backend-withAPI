@@ -28,6 +28,9 @@ export const canManagePermissions = (user: User | null): boolean =>
 export const canManageGroups = (user: User | null): boolean =>
   hasPermission(user, 'groups.write');
 
+export const canManageResources = (user: User | null): boolean =>
+  hasPermission(user, 'permissions.write');
+
 // Composite checks
 export const canViewUser = (currentUser: User | null, targetUserId: string): boolean =>
   !!currentUser && (currentUser.id === targetUserId || canViewUsers(currentUser));

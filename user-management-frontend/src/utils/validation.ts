@@ -50,6 +50,34 @@ export const groupUpdateSchema = z.object({
 });
 export type GroupUpdateSchema = z.infer<typeof groupUpdateSchema>;
 
+export const permissionCreateSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name too long'),
+  description: z.string().max(255, 'Description too long').optional().nullable(),
+  resource: z.string().min(1, 'Resource is required').max(50, 'Resource too long'),
+  action: z.string().min(1, 'Action is required').max(50, 'Action too long'),
+});
+export type PermissionCreateSchema = z.infer<typeof permissionCreateSchema>;
+
+export const permissionUpdateSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  description: z.string().max(255).optional().nullable(),
+  resource: z.string().min(1).max(50).optional(),
+  action: z.string().min(1).max(50).optional(),
+});
+export type PermissionUpdateSchema = z.infer<typeof permissionUpdateSchema>;
+
+export const resourceCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
+  description: z.string().max(255, 'Description too long').optional().nullable(),
+});
+export type ResourceCreateSchema = z.infer<typeof resourceCreateSchema>;
+
+export const resourceUpdateSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  description: z.string().max(255).optional().nullable(),
+});
+export type ResourceUpdateSchema = z.infer<typeof resourceUpdateSchema>;
+
 export const profileUpdateSchema = z.object({
   full_name: z.string().optional().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
