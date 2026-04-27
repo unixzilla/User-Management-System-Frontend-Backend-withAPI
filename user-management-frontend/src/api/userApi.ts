@@ -46,14 +46,22 @@ export const userApi = baseApi.injectEndpoints({
         method: 'POST',
         params: { role_id: roleId },
       }),
-      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: 'User', id: userId },
+        'User',
+        'Role',
+      ],
     }),
     removeRole: builder.mutation<void, { userId: string; roleId: number }>({
       query: ({ userId, roleId }) => ({
         url: `/users/${userId}/roles/${roleId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: 'User', id: userId },
+        'User',
+        'Role',
+      ],
     }),
   }),
 });
