@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { useAuth } from '@/context/AuthContext';
 import { loginSchema, type LoginSchema } from '@/utils/validation';
+import { getErrorMessage } from '@/utils/format';
 
 export function LoginPage() {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -51,7 +52,7 @@ export function LoginPage() {
       setError('');
       await login(data);
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      setError(getErrorMessage(err, 'Login failed — please try again'));
     }
   };
 
