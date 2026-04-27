@@ -56,6 +56,9 @@ export const canManageResources = (user: User | null): boolean =>
 export const canDeleteResources = (user: User | null): boolean =>
   hasPermission(user, 'resources.delete');
 
+export const canViewErrors = (user: User | null): boolean =>
+  hasPermission(user, 'errors.read');
+
 // Composite checks
 export const canViewUser = (currentUser: User | null, targetUserId: string): boolean =>
   !!currentUser && (currentUser.id === targetUserId || canViewUsers(currentUser));

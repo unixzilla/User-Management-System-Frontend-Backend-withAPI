@@ -21,6 +21,7 @@ import {
   canViewResources,
   canManageResources,
   canDeleteResources,
+  canViewErrors,
 } from '@/utils/permissions';
 
 export function usePermissions() {
@@ -50,5 +51,6 @@ export function usePermissions() {
     canViewResources: () => canViewResources(user),
     canManageResources: () => canManageResources(user),
     canDeleteResources: () => canDeleteResources(user),
+    canViewErrors: () => canViewErrors(user),
   };
 }

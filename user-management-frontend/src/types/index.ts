@@ -4,4 +4,5 @@ export * from './role.types';
 export * from './permission.types';
 export * from './group.types';
 export * from './resource.types';
+export * from './error.types';
 export * from './api.types';

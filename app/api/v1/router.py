@@ -1,7 +1,7 @@
 """Aggregate all v1 API routers."""
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, users, roles, permissions, groups, resources
+from app.api.v1.endpoints import auth, users, roles, permissions, groups, resources, errors
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -11,3 +11,4 @@ api_router.include_router(roles.router)
 api_router.include_router(permissions.router)
 api_router.include_router(groups.router)
 api_router.include_router(resources.router)
+api_router.include_router(errors.router)

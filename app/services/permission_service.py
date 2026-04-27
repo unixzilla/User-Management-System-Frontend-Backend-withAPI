@@ -30,13 +30,14 @@ DEFAULT_PERMISSIONS = [
     {"name": "groups.read", "description": "View user groups", "resource": "groups", "action": "read"},
     {"name": "groups.write", "description": "Create and update groups", "resource": "groups", "action": "write"},
     {"name": "groups.delete", "description": "Delete groups", "resource": "groups", "action": "delete"},
+    {"name": "errors.read", "description": "View error logs", "resource": "errors", "action": "read"},
     {"name": "admin", "description": "Full administrative access", "resource": "*", "action": "*"},
 ]
 
 DEFAULT_ROLE_PERMISSIONS = {
     "admin": ["admin"],
-    "editor": ["users.read", "users.write", "roles.read", "permissions.read", "groups.read", "resources.read"],
-    "viewer": ["users.read", "roles.read", "permissions.read", "groups.read", "resources.read"],
+    "editor": ["users.read", "users.write", "roles.read", "permissions.read", "groups.read", "resources.read", "errors.read"],
+    "viewer": ["users.read", "roles.read", "permissions.read", "groups.read", "resources.read", "errors.read"],
     "guest": [],
 }
 

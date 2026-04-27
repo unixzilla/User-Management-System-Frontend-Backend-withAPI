@@ -33,3 +33,4 @@ export {
   useUpdateResourceMutation,
   useDeleteResourceMutation,
 } from './resourceApi';
+export { errorApi, useGetErrorsQuery, useGetErrorQuery } from './errorApi';

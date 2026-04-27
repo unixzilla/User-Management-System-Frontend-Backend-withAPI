@@ -72,6 +72,10 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "User-Agent"],
 )
 
+# Request ID middleware — generates a correlation ID for every request
+from app.core.request_id import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
+
 # Rate limiter middleware (in-memory; replace with Redis-backed solution in production)
 from app.core.rate_limiter import RateLimiter
 app.add_middleware(RateLimiter, max_requests=60, window_seconds=60)
@@ -80,11 +84,52 @@ app.add_middleware(RateLimiter, max_requests=60, window_seconds=60)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     import logging
+    import traceback
+    from app.services.error_service import error_service
+
     logger = logging.getLogger("app")
-    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    request_id = getattr(request.state, "request_id", None)
+    logger.error(
+        f"[{request_id}] Unhandled exception on {request.method} {request.url.path}: {exc}",
+        exc_info=True,
+    )
+
+    detail = "Internal server error"
+    if request_id:
+        detail = f"Internal server error (Request ID: {request_id})"
+
+    # Fire-and-forget: log error to MongoDB for admin dashboard
+    try:
+        user_id = None
+        # Try to extract user from Authorization header
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                from app.core.security import decode_token
+                token_data = decode_token(auth_header.split(" ")[1])
+                if token_data:
+                    user_id = token_data.get("sub")
+            except Exception:
+                pass
+        error_service.log_error(
+            request_id=request_id or "unknown",
+            method=request.method,
+            path=request.url.path,
+            status_code=500,
+            detail=str(exc),
+            exception_type=type(exc).__name__,
+            exception_message=str(exc),
+            traceback_str=traceback.format_exc(),
+            user_id=user_id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("User-Agent"),
+        )
+    except Exception:
+        logger.exception("Failed to persist error log")
+
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"},
+        content={"detail": detail},
     )
 
 # Include API routers

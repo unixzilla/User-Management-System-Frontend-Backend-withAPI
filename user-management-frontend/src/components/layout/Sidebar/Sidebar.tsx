@@ -16,6 +16,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import GroupIcon from '@mui/icons-material/Group';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import CategoryIcon from '@mui/icons-material/Category';
+import BugReportIcon from '@mui/icons-material/BugReport';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { useAppSelector } from '@/hooks.redux';
@@ -25,6 +26,7 @@ import {
   canViewGroups,
   canViewPermissions,
   canViewResources,
+  canViewErrors,
 } from '@/utils/permissions';
 
 const DRAWER_WIDTH = 240;
@@ -36,6 +38,7 @@ const MENU_ITEMS = [
   { label: 'Groups', path: '/groups', icon: <GroupIcon />, guard: canViewGroups },
   { label: 'Permissions', path: '/permissions', icon: <VpnKeyIcon />, guard: canViewPermissions },
   { label: 'Resources', path: '/resources', icon: <CategoryIcon />, guard: canViewResources },
+  { label: 'Error Logs', path: '/errors', icon: <BugReportIcon />, guard: canViewErrors },
   { label: 'Profile', path: '/profile', icon: <PersonIcon />, guard: null },
 ];
 

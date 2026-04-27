@@ -29,6 +29,6 @@ const fetchBaseQueryWithAuth: BaseQueryFn = async (args, api, extraOptions) => {
 
 export const baseApi = createApi({
   baseQuery: fetchBaseQueryWithAuth,
-  tagTypes: ['User', 'Role', 'Auth', 'Permission', 'Group', 'Resource'],
+  tagTypes: ['User', 'Role', 'Auth', 'Permission', 'Group', 'Resource', 'Error'],
   endpoints: () => ({}),
 });

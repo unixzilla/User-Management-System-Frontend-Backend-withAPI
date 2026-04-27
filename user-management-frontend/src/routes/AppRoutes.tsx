@@ -8,6 +8,7 @@ import { GroupsPage } from '../pages/groups/GroupsPage';
 import { GroupDetailPage } from '../pages/groups/GroupDetailPage';
 import { PermissionsPage } from '../pages/permissions/PermissionsPage';
 import { ResourcesPage } from '../pages/resources/ResourcesPage';
+import { ErrorLogsPage } from '../pages/errors/ErrorLogsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { UnauthorizedPage } from '../pages/unauthorized/UnauthorizedPage';
 import { NotFoundPage } from '../pages/not-found/NotFoundPage';
@@ -93,6 +94,13 @@ const resourcesRoute = createRoute({
   component: ResourcesPage,
 });
 
+// Error logs page
+const errorsRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/errors',
+  component: ErrorLogsPage,
+});
+
 // Profile page
 const profileRoute = createRoute({
   getParentRoute: () => layoutRoute,
@@ -124,6 +132,7 @@ const layoutWithChildren = layoutRoute.addChildren([
   groupDetailRoute,
   permissionsRoute,
   resourcesRoute,
+  errorsRoute,
   profileRoute,
 ]);
 
