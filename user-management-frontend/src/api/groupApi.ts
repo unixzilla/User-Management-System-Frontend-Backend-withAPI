@@ -46,6 +46,7 @@ export const groupApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { groupId }) => [
         { type: 'Group' as const, id: groupId },
+        'Group',
         'User',
       ],
     }),
@@ -57,6 +58,7 @@ export const groupApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { groupId }) => [
         { type: 'Group' as const, id: groupId },
+        'Group',
         'User',
       ],
     }),
