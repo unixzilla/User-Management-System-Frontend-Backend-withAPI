@@ -11,7 +11,7 @@ from app.services.user_service import user_service
 from app.models.user import User
 from app.models.role import Role
 from app.schemas.user import UserCreate, UserUpdate, UserOut, PaginatedResponse
-from app.dependencies import get_current_user, get_db, require_permission
+from app.dependencies import get_current_user, get_current_user_with_permissions, get_db, require_permission
 from app.core.exceptions import NotFoundError, ConflictError, ForbiddenError
 from app.core.security import decode_token
 from app.crud.role import role as role_crud
@@ -79,16 +79,30 @@ async def get_user(
     return user
 
 
+def _has_permission(user: User, permission: str) -> bool:
+    """Check if user has a permission via any direct or group role."""
+    for role in user.roles:
+        for p in role.permissions:
+            if p.name == permission or p.name == "admin":
+                return True
+    for group in user.groups:
+        for role in group.roles:
+            for p in role.permissions:
+                if p.name == permission or p.name == "admin":
+                    return True
+    return False
+
+
 @router.patch("/{user_id}", response_model=UserOut)
 async def update_user(
     request: Request,
     user_id: UUID,
     user_in: UserUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user_with_permissions)],
 ) -> User:
-    """Update a user's information."""
-    if current_user.id != user_id and not current_user.is_admin:
+    """Update a user's information. Self-update always allowed; updating others requires users.write."""
+    if current_user.id != user_id and not _has_permission(current_user, "users.write"):
         raise ForbiddenError(detail="Not enough permissions")
 
     return await user_service.update_user(
