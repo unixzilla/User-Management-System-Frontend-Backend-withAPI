@@ -35,9 +35,13 @@ const fetchBaseQueryWithAuth: BaseQueryFn = async (args, api, extraOptions) => {
 
   if (result.error) {
     if (result.error.status === 401) {
-      storage.clearAll();
-      api.dispatch(logoutAction());
-      window.location.href = '/login';
+      // Don't redirect for login failures — let the LoginPage handle the error
+      const url = typeof args === 'string' ? args : (args as any)?.url;
+      if (!url || !url.includes('/auth/login')) {
+        storage.clearAll();
+        api.dispatch(logoutAction());
+        window.location.href = '/login';
+      }
     } else {
       // Dispatch global error snackbar — only for queries.
       // Mutations already show user-friendly snackbars in their catch blocks.
