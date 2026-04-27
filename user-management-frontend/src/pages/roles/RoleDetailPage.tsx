@@ -27,7 +27,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import AddIcon from '@mui/icons-material/Add';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useLocation } from '@tanstack/react-router';
 import {
   useGetRolesQuery,
   useAssignRoleMutation,
@@ -46,8 +46,10 @@ import { useSnackbar } from 'notistack';
 // Import existing dialogs if needed (reuse confirm pattern)
 import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
 
-export function RoleDetailPage(props: { roleId?: string }) {
-  const roleId = props.roleId || '';
+export function RoleDetailPage() {
+  const location = useLocation();
+  const roleId = location.pathname.split('/').pop() || '';
+  const numericRoleId = parseInt(roleId, 10);
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const { user: currentUser } = useAppSelector((state) => state.auth);
@@ -67,8 +69,8 @@ export function RoleDetailPage(props: { roleId?: string }) {
   const { data: permData, isLoading: permsLoading } = useGetPermissionsQuery();
   const allPermissions = permData?.items ?? [];
   const { data: rolePermissions = [], isLoading: rolePermsLoading } = useGetRolePermissionsQuery(
-    parseInt(roleId, 10),
-    { skip: !roleId }
+    numericRoleId,
+    { skip: !roleId || isNaN(numericRoleId) }
   );
   const rolePermIds = new Set(rolePermissions.map((p: Permission) => p.id));
 
@@ -81,9 +83,9 @@ export function RoleDetailPage(props: { roleId?: string }) {
 
   // Find the current role from allRoles list
   const role = useMemo(() => {
-    if (!roleId) return null;
-    return allRoles.find((r) => r.id === parseInt(roleId, 10)) || null;
-  }, [allRoles, roleId]);
+    if (!roleId || isNaN(numericRoleId)) return null;
+    return allRoles.find((r) => r.id === numericRoleId) || null;
+  }, [allRoles, roleId, numericRoleId]);
 
   // Get users currently in this role
   const usersInRole = useMemo(() => {

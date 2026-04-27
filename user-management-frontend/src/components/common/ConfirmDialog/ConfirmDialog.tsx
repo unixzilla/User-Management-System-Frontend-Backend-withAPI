@@ -11,12 +11,13 @@ import {
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
   isLoading?: boolean;
+  disabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -28,18 +29,23 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   isLoading = false,
+  disabled = false,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onClose={onCancel}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText>{message}</DialogContentText>
+        {typeof message === 'string' ? (
+          <DialogContentText>{message}</DialogContentText>
+        ) : (
+          message
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} disabled={isLoading}>
           {cancelText}
         </Button>
-        <Button onClick={onConfirm} variant="contained" loading={isLoading}>
+        <Button onClick={onConfirm} variant="contained" loading={isLoading} disabled={disabled}>
           {confirmText}
         </Button>
       </DialogActions>

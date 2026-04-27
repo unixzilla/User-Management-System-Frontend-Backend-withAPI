@@ -2,7 +2,28 @@
 from typing import Optional
 from datetime import datetime
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+
+class GroupMemberOut(BaseModel):
+    """Lightweight user representation inside a group."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    username: str
+    email: str
+
+    @field_validator('id', mode='before')
+    @classmethod
+    def coerce_id(cls, v: object) -> str:
+        return str(v)
+
+
+class GroupRoleOut(BaseModel):
+    """Lightweight role representation inside a group."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    description: Optional[str] = None
 
 
 class UserGroupBase(BaseModel):
@@ -30,6 +51,8 @@ class UserGroupOut(UserGroupBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     member_count: int = 0
+    members: list[GroupMemberOut] = []
+    roles: list[GroupRoleOut] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

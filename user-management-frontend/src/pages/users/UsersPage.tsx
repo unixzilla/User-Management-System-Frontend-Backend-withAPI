@@ -19,7 +19,7 @@ import { EditUserDialog } from './EditUserDialog';
 import { DeleteUserDialog } from './DeleteUserDialog';
 
 export function UsersPage() {
-  const { canDeleteUser } = usePermissions();
+  const { canEditUsers, canDeleteUsers } = usePermissions();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -54,6 +54,7 @@ export function UsersPage() {
   };
 
   const handleRowClick = (user: User) => {
+    if (!canEditUsers()) return;
     setSelectedUser(user);
     setOpenEdit(true);
   };
@@ -71,9 +72,11 @@ export function UsersPage() {
     <Container maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Users</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
-          Create User
-        </Button>
+        {canEditUsers() && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
+            Create User
+          </Button>
+        )}
       </Box>
 
       <Paper sx={{ p: 2 }}>
@@ -102,6 +105,7 @@ export function UsersPage() {
           totalCount={totalCount}
           onPageChange={handlePageChange}
           onRowClick={handleRowClick}
+          onDelete={canDeleteUsers() ? handleDelete : undefined}
         />
       </Paper>
 

@@ -27,7 +27,7 @@ import { EditRoleDialog } from './EditRoleDialog';
 
 export function RolesPage() {
   const navigate = useNavigate();
-  const { canManageRoles } = usePermissions();
+  const { canViewRoles, canManageRoles, canDeleteRoles } = usePermissions();
   const { data: roles = [], isLoading } = useGetRolesQuery({});
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<Role | null>(null);
@@ -35,7 +35,7 @@ export function RolesPage() {
   const [openDelete, setOpenDelete] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
-  if (!canManageRoles()) {
+  if (!canViewRoles()) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ py: 4 }}>
@@ -51,9 +51,11 @@ export function RolesPage() {
     <Container maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Roles</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
-          Create Role
-        </Button>
+        {canManageRoles() && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
+            Create Role
+          </Button>
+        )}
       </Box>
 
       <Paper sx={{ p: 2 }}>
@@ -81,27 +83,31 @@ export function RolesPage() {
                   </TableCell>
                   <TableCell>{role.description || '-'}</TableCell>
                   <TableCell align="right">
-                    <IconButton
-                      color="primary"
-                      onClick={() => {
-                        setSelectedRoleForEdit(role);
-                        setOpenEdit(true);
-                      }}
-                      disabled={role.name === 'admin'} // Protect admin role from edit
-                      sx={{ mr: 1 }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => {
-                        setSelectedRole(role);
-                        setOpenDelete(true);
-                      }}
-                      disabled={role.name === 'admin'} // Protect admin role
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    {canManageRoles() && (
+                      <IconButton
+                        color="primary"
+                        onClick={() => {
+                          setSelectedRoleForEdit(role);
+                          setOpenEdit(true);
+                        }}
+                        disabled={role.name === 'admin'}
+                        sx={{ mr: 1 }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    )}
+                    {canDeleteRoles() && (
+                      <IconButton
+                        color="error"
+                        onClick={() => {
+                          setSelectedRole(role);
+                          setOpenDelete(true);
+                        }}
+                        disabled={role.name === 'admin'}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

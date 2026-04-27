@@ -7,6 +7,7 @@ from sqlalchemy import select, text
 
 from app.crud.permission import permission as permission_crud
 from app.crud.role import role as role_crud
+from app.crud.resource import resource as resource_crud
 from app.models.permission import Permission, role_permissions
 from app.models.role import Role
 from app.schemas.permission import PermissionCreate, PermissionUpdate
@@ -52,6 +53,7 @@ class PermissionService:
         description: Optional[str] = None,
         resource: str,
         action: str,
+        resource_id: Optional[int] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
@@ -60,9 +62,23 @@ class PermissionService:
         if existing:
             raise ConflictError(detail=f"Permission '{name}' already exists")
 
+        # Resolve resource name from resource_id if provided
+        resolved_resource = resource
+        if resource_id is not None:
+            resource_obj = await resource_crud.get(db, resource_id)
+            if resource_obj is None:
+                raise NotFoundError(detail=f"Resource with id {resource_id} not found")
+            resolved_resource = resource_obj.name
+
         perm = await self.permission_crud.create(
             db,
-            {"name": name, "description": description, "resource": resource, "action": action},
+            {
+                "name": name,
+                "description": description,
+                "resource": resolved_resource,
+                "action": action,
+                "resource_id": resource_id,
+            },
         )
 
         await audit_service.log(
@@ -70,7 +86,7 @@ class PermissionService:
             actor_id=actor_id,
             target_id=perm.id,
             target_type="permission",
-            payload={"name": name, "resource": resource, "action": action},
+            payload={"name": name, "resource": resolved_resource, "action": action},
             ip_address=ip_address,
             user_agent=user_agent,
         )
@@ -89,8 +105,18 @@ class PermissionService:
         perm = await self.permission_crud.get(db, permission_id)
         if perm is None:
             raise NotFoundError(detail="Permission not found")
+        if perm.name == "admin":
+            raise ConflictError(detail="Cannot modify the 'admin' permission")
 
         update_data = data.model_dump(exclude_unset=True)
+
+        # Resolve resource name from resource_id if provided
+        if "resource_id" in update_data and update_data["resource_id"] is not None:
+            resource_obj = await resource_crud.get(db, update_data["resource_id"])
+            if resource_obj is None:
+                raise NotFoundError(detail=f"Resource with id {update_data['resource_id']} not found")
+            update_data["resource"] = resource_obj.name
+
         if not update_data:
             return perm
 
@@ -282,7 +308,15 @@ class PermissionService:
             if existing:
                 perm_ids[p["name"]] = existing.id
             else:
-                perm = await self.permission_crud.create(db, p)
+                # Resolve resource_id from resource name
+                rid = None
+                if p["resource"] != "*":
+                    res = await resource_crud.get_by_name(db, p["resource"])
+                    if res:
+                        rid = res.id
+                perm = await self.permission_crud.create(
+                    db, {**p, "resource_id": rid}
+                )
                 perm_ids[p["name"]] = perm.id
 
         # Seed role-permission assignments

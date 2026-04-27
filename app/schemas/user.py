@@ -62,12 +62,18 @@ class UserOut(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
     roles: list = []  # Will be serialized to list of role names
+    groups: list = []  # Will be serialized to list of group names
     permissions: list = []  # Will be serialized to list of permission names
 
     @field_serializer("roles")
     def serialize_roles(self, roles: list) -> list[str]:
         """Convert Role objects to list of role names."""
         return [role.name for role in roles] if roles else []
+
+    @field_serializer("groups")
+    def serialize_groups(self, groups: list) -> list[str]:
+        """Convert Group objects to list of group names."""
+        return [group.name for group in groups] if groups else []
 
     @field_serializer("permissions")
     def serialize_permissions(self, permissions: list) -> list[str]:

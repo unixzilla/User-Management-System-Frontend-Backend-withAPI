@@ -5,10 +5,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.group import group as group_crud
+from app.crud.user import user as user_crud
 from app.crud.role import role as role_crud
 from app.models.group import UserGroup
 from app.services.audit_service import audit_service
-from app.core.exceptions import ConflictError, NotFoundError
+from app.models.user import User
+from app.core.exceptions import ConflictError, NotFoundError, ForbiddenError
 
 
 class GroupService:
@@ -16,6 +18,7 @@ class GroupService:
 
     def __init__(self):
         self.group_crud = group_crud
+        self.user_crud = user_crud
         self.role_crud = role_crud
         self.audit_service = audit_service
 
@@ -60,6 +63,8 @@ class GroupService:
         group = await self.group_crud.get(db, group_id)
         if group is None:
             raise NotFoundError(detail="Group not found")
+        if group.name in ("admin", "guest"):
+            raise ConflictError(detail=f"Cannot modify the '{group.name}' group")
 
         update_data = {}
         if name is not None:
@@ -95,18 +100,28 @@ class GroupService:
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> bool:
-        g = await self.group_crud.get(db, group_id)
+        g = await self.group_crud.get_with_members(db, group_id)
         if g is None:
             return False
+        if g.name in ("admin", "guest"):
+            raise ConflictError(detail=f"Cannot delete the '{g.name}' group")
 
-        success = await self.group_crud.delete(db, id=group_id)
+        if len(g.members) > 0:
+            raise ConflictError(
+                detail=f"Cannot delete group '{g.name}' while it still has members. "
+                       f"Remove all members from the group first."
+            )
+
+        group_name = g.name
+        success = await self.group_crud.delete(db, group_id)
+
         if success:
             await audit_service.log(
                 event_type="group.deleted",
                 actor_id=actor_id,
                 target_id=group_id,
                 target_type="group",
-                payload={"group_name": g.name},
+                payload={"group_name": group_name},
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
@@ -118,10 +133,16 @@ class GroupService:
         *,
         group_id: int,
         user_id: UUID,
+        actor: Optional[User] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> bool:
+        # Only admin can add members to the admin group
+        group = await self.group_crud.get(db, group_id)
+        if group and group.name == "admin" and (actor is None or not actor.is_admin):
+            raise ForbiddenError(detail="Only administrators can modify the admin group")
+
         success = await self.group_crud.add_member(db, group_id=group_id, user_id=user_id)
         if success:
             await audit_service.log(
@@ -141,10 +162,26 @@ class GroupService:
         *,
         group_id: int,
         user_id: UUID,
+        actor: Optional[User] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> bool:
+        from app.config import settings
+
+        # Only admin can remove members from the admin group
+        group = await self.group_crud.get(db, group_id)
+        if group and group.name == "admin" and (actor is None or not actor.is_admin):
+            raise ForbiddenError(detail="Only administrators can modify the admin group")
+
+        # Prevent removing the system administrator from the admin group
+        if group and group.name == "admin":
+            user = await self.user_crud.get(db, user_id)
+            if user and user.email == settings.first_superuser_email:
+                raise ConflictError(
+                    detail="Cannot remove the system administrator from the admin group"
+                )
+
         success = await self.group_crud.remove_member(db, group_id=group_id, user_id=user_id)
         if success:
             await audit_service.log(
@@ -164,6 +201,7 @@ class GroupService:
         *,
         group_id: int,
         role_id: int,
+        actor: Optional[User] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
@@ -171,6 +209,11 @@ class GroupService:
         role = await self.role_crud.get(db, role_id)
         if role is None:
             raise NotFoundError(detail="Role not found")
+
+        # Only admin can assign the admin role to a group
+        if role.name == "admin" and (actor is None or not actor.is_admin):
+            raise ForbiddenError(detail="Only administrators can assign the admin role")
+
         success = await self.group_crud.assign_role(db, group_id=group_id, role_id=role_id)
         if success:
             await audit_service.log(
@@ -190,6 +233,7 @@ class GroupService:
         *,
         group_id: int,
         role_id: int,
+        actor: Optional[User] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,

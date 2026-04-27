@@ -9,8 +9,17 @@ import {
 
 export const permissionApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getPermissions: builder.query<PaginatedResponse<Permission>, void>({
-      query: () => '/permissions/',
+    getPermissions: builder.query<PaginatedResponse<Permission>, { skip?: number; limit?: number; search?: string } | void>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+          if (params.skip !== undefined) searchParams.set('skip', String(params.skip));
+          if (params.limit !== undefined) searchParams.set('limit', String(params.limit));
+          if (params.search) searchParams.set('search', params.search);
+        }
+        const qs = searchParams.toString();
+        return `/permissions/${qs ? `?${qs}` : ''}`;
+      },
       providesTags: ['Permission'],
     }),
 

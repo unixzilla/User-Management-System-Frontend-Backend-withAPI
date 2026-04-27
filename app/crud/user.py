@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.crud.base import CRUDBase
-from app.models.role import Role
+from app.models.group import user_group_members
 from app.models.user import User, user_roles
 
 
@@ -19,9 +19,12 @@ class CRUDUser(CRUDBase):
         super().__init__(User)
 
     async def get_by_email(self, db: AsyncSession, email: str) -> User | None:
-        """Get user by email address."""
+        """Get user by email address (excludes soft-deleted)."""
         result = await db.execute(
-            select(User).where(User.email == email).options(selectinload(User.roles))
+            select(User).where(User.email == email, User.deleted_at == None).options(
+                selectinload(User.roles),
+                selectinload(User.groups),
+            )
         )
         return result.scalar_one_or_none()
 
@@ -37,11 +40,14 @@ class CRUDUser(CRUDBase):
     async def get_with_roles(
         self, db: AsyncSession, user_id: UUID
     ) -> User | None:
-        """Get user with roles eagerly loaded."""
+        """Get user with roles and groups eagerly loaded (excludes soft-deleted)."""
         result = await db.execute(
             select(User)
-            .where(User.id == user_id)
-            .options(selectinload(User.roles))
+            .where(User.id == user_id, User.deleted_at == None)
+            .options(
+                selectinload(User.roles),
+                selectinload(User.groups),
+            )
         )
         return result.scalar_one_or_none()
 
@@ -54,10 +60,13 @@ class CRUDUser(CRUDBase):
         search: str | None = None,
     ) -> list[User]:
         """Get multiple users with their roles."""
-        query = select(User).options(selectinload(User.roles))
+        query = select(User).options(
+            selectinload(User.roles),
+            selectinload(User.groups),
+        ).where(User.deleted_at == None)
 
         if active_only:
-            query = query.where(User.is_active == True, User.deleted_at == None)
+            query = query.where(User.is_active == True)
 
         if search:
             pattern = f"%{search}%"
@@ -77,9 +86,9 @@ class CRUDUser(CRUDBase):
         search: str | None = None,
     ) -> int:
         """Get total count of users."""
-        query = select(func.count()).select_from(User)
+        query = select(func.count()).select_from(User).where(User.deleted_at == None)
         if active_only:
-            query = query.where(User.is_active == True, User.deleted_at == None)
+            query = query.where(User.is_active == True)
         if search:
             pattern = f"%{search}%"
             query = query.where(
@@ -116,8 +125,13 @@ class CRUDUser(CRUDBase):
     async def soft_delete(
         self, db: AsyncSession, user_id: UUID
     ) -> bool:
-        """Soft delete a user and remove all role assignments."""
+        """Soft delete a user: remove group memberships, then role assignments, then mark deleted."""
         now = datetime.now(timezone.utc)
+
+        # Remove group memberships first
+        await db.execute(
+            user_group_members.delete().where(user_group_members.c.user_id == user_id)
+        )
 
         # Remove role assignments
         await db.execute(

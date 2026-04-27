@@ -30,15 +30,16 @@ A production-ready User Management Web Service built with **FastAPI**, **Postgre
 ## Features
 
 ### Backend (FastAPI)
-- **User Management**: CRUD operations with soft deletes, last_login tracking
-- **Role-Based Access Control**: Many-to-many user-role relationships
-- **Granular Permission System**: 12 resource-scoped permissions + admin wildcard, role-permission associations
-- **User Groups**: Group users together, assign roles to groups for inherited permissions
+- **User Management**: CRUD operations with hard deletes (cascade: groups → roles → user), last_login tracking, seeded admin protection
+- **Role-Based Access Control**: Many-to-many user-role relationships, seeded admin role removal prevention
+- **Granular Permission System**: 12 resource-scoped permissions + admin wildcard, role-permission associations, FK-linked resources
+- **Resource Management**: Dedicated `resources` table with FK from permissions, cascade delete, protected default resources
+- **User Groups**: Group users together, assign roles to groups for inherited permissions, member-based delete protection, seeded admin group protection
 - **JWT Authentication**: Access tokens (15 min) + refresh tokens (7 days), session expiration handling
 - **Audit Logging**: All mutations logged to MongoDB asynchronously
 - **PostgreSQL Advanced Features**: Views, CTEs, Window Functions, Stored Procedures
 - **Async-First**: All database operations are async
-- **Auto-Seeding**: Idempotent startup seeding (roles → permissions → groups → users)
+- **Auto-Seeding**: Idempotent startup seeding (resources → roles → permissions → groups → users)
 
 ### Frontend (React + Vite + MUI)
 - **SPA with TanStack Router**: Client-side routing with protected routes
@@ -102,8 +103,11 @@ The authorization model uses granular, resource-scoped permissions attached to r
 | `roles` | `roles.read` | `roles.write` | `roles.delete` |
 | `permissions` | `permissions.read` | `permissions.write` | — |
 | `groups` | `groups.read` | `groups.write` | `groups.delete` |
+| `resources` | *(via permissions)* | `permissions.write` | `permissions.delete` |
 
 Plus one wildcard: **`admin`** (`resource=*`, `action=*`) — grants all permissions.
+
+Permissions now reference resources via `resource_id` FK (denormalized `resource` string auto-populated). Deleting a resource cascade-deletes its associated permissions. The four default resources (`users`, `roles`, `permissions`, `groups`) are protected from modification/deletion.
 
 ### Default Role-Permission Assignments
 
@@ -190,7 +194,7 @@ All endpoints are prefixed with `/api/v1`.
 | POST | `/` | `users.write` | Create new user |
 | GET | `/{user_id}` | Self or `users.read` | Get user by ID |
 | PATCH | `/{user_id}` | Self or `users.write` | Update user fields |
-| DELETE | `/{user_id}` | `users.delete` | Soft-delete user |
+| DELETE | `/{user_id}` | `users.delete` | Hard-delete user (cascade: groups → roles → user) |
 | POST | `/{user_id}/roles` | `roles.write` | Assign role to user |
 | DELETE | `/{user_id}/roles/{role_id}` | `roles.write` | Remove role from user |
 
@@ -228,15 +232,26 @@ All endpoints are prefixed with `/api/v1`.
 | POST | `/{group_id}/roles/{role_id}` | `groups.write` | Assign role to group |
 | DELETE | `/{group_id}/roles/{role_id}` | `groups.write` | Remove role from group |
 
+### Resources (`/api/v1/resources`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | `permissions.read` | List all resources (paginated) |
+| POST | `/` | `permissions.write` | Create resource |
+| GET | `/{resource_id}` | `permissions.read` | Get resource by ID |
+| PATCH | `/{resource_id}` | `permissions.write` | Update resource (protected defaults blocked) |
+| DELETE | `/{resource_id}` | `permissions.delete` | Delete resource + cascade delete permissions |
+
 ## Database Design
 
 ### PostgreSQL Schema
 
 **Tables:**
-- `users` — User accounts (soft-deletable, UUID primary key, last_login tracking)
+- `users` — User accounts (UUID primary key, last_login tracking)
 - `roles` — Role definitions (admin, editor, viewer, guest)
 - `user_roles` — Many-to-many user-role join table
-- `permissions` — Granular permission definitions (resource + action)
+- `resources` — Resource definitions for permission scoping (users, roles, permissions, groups)
+- `permissions` — Granular permission definitions (resource + action, FK→resources with cascade delete)
 - `role_permissions` — Many-to-many role-permission join table
 - `user_groups` — User group definitions
 - `user_group_members` — Many-to-many group-member join table
@@ -281,7 +296,7 @@ user-management-service/
 │   ├── dependencies.py               # DI: DB sessions, current user, require_permission
 │   ├── api/v1/
 │   │   ├── router.py                 # Aggregates all v1 routes
-│   │   └── endpoints/                # auth, users, roles, permissions, groups
+│   │   └── endpoints/                # auth, users, roles, permissions, groups, resources
 │   ├── core/                         # Security (JWT, password hashing), exceptions
 │   ├── db/                           # PostgreSQL & MongoDB connections
 │   ├── models/                       # SQLAlchemy ORM models (User, Role, Permission, UserGroup)
@@ -292,7 +307,7 @@ user-management-service/
 │   ├── src/
 │   │   ├── api/                      # RTK Query API slices (auth, users, roles, permissions, groups)
 │   │   ├── components/               # Reusable UI components (layout, dialogs)
-│   │   ├── pages/                    # Page components (dashboard, users, roles, groups, profile, login)
+│   │   ├── pages/                    # Page components (dashboard, users, roles, groups, resources, permissions, profile, login)
 │   │   ├── store/                    # Redux store
 │   │   ├── theme/                    # MUI theme configuration
 │   │   ├── types/                    # TypeScript interfaces
@@ -306,8 +321,8 @@ user-management-service/
 │   ├── vite.config.ts                # Vite configuration
 │   ├── package.json                  # Frontend dependencies
 │   └── tsconfig.json                 # TypeScript configuration
-├── alembic/                          # DB migrations (4 migrations)
-│   └── versions/                     # 0001_init, 0002_last_login, 0003_permissions, 0004_user_groups
+├── alembic/                          # DB migrations (5 migrations)
+│   └── versions/                     # 0001_init … 0005_add_resources
 ├── sql/                              # Views, procedures, complex queries
 ├── scripts/                          # Utility scripts
 ├── tests/                            # Unit + integration tests

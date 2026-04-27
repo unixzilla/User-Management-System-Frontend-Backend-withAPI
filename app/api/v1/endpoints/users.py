@@ -11,7 +11,7 @@ from app.services.user_service import user_service
 from app.models.user import User
 from app.models.role import Role
 from app.schemas.user import UserCreate, UserUpdate, UserOut, PaginatedResponse
-from app.dependencies import get_current_user, get_current_active_admin, get_db
+from app.dependencies import get_current_user, get_current_active_admin, get_db, require_permission
 from app.core.exceptions import NotFoundError, ConflictError, ForbiddenError
 from app.core.security import decode_token
 from app.crud.role import role as role_crud
@@ -22,13 +22,13 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/", response_model=PaginatedResponse[UserOut])
 async def list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("users.read"))],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     active_only: bool = Query(False),
     search: str | None = Query(None, description="Search by email or username"),
 ) -> dict:
-    """List all users (admin only)."""
+    """List all users."""
     users = await user_service.list_users(
         db, skip=skip, limit=limit, active_only=active_only, search=search
     )
@@ -50,9 +50,9 @@ async def create_user(
     request: Request,
     user_in: UserCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("users.write"))],
 ) -> User:
-    """Create a new user (admin only)."""
+    """Create a new user."""
     return await user_service.create_user(
         db,
         user_in=user_in,
@@ -111,9 +111,9 @@ async def delete_user(
     request: Request,
     user_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("users.delete"))],
 ) -> dict:
-    """Soft delete a user (admin only)."""
+    """Soft delete a user."""
 
     uid = UUID(user_id)
 
@@ -136,10 +136,10 @@ async def assign_role_to_user(
     request: Request,
     user_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("users.write"))],
     role_id: int = Query(..., description="Role ID to assign"),
 ) -> dict:
-    """Assign a role to a user (admin only)."""
+    """Assign a role to a user."""
 
     uid = UUID(user_id)
 
@@ -147,6 +147,7 @@ async def assign_role_to_user(
         db,
         user_id=uid,
         role_id=role_id,
+        actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
@@ -164,9 +165,9 @@ async def remove_role_from_user(
     user_id: str,
     role_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("users.write"))],
 ) -> dict:
-    """Remove a role from a user (admin only)."""
+    """Remove a role from a user."""
 
     uid = UUID(user_id)
 
@@ -174,6 +175,7 @@ async def remove_role_from_user(
         db,
         user_id=uid,
         role_id=role_id,
+        actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),

@@ -19,17 +19,24 @@ import CategoryIcon from '@mui/icons-material/Category';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { useAppSelector } from '@/hooks.redux';
-import { isAdmin } from '@/utils/permissions';
+import {
+  canViewUsers,
+  canViewRoles,
+  canViewGroups,
+  canViewPermissions,
+  canViewResources,
+} from '@/utils/permissions';
 
 const DRAWER_WIDTH = 240;
 
 const MENU_ITEMS = [
-  { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
-  { label: 'Users', path: '/users', icon: <PeopleIcon />, adminOnly: true },
-  { label: 'Roles', path: '/roles', icon: <AdminPanelSettingsIcon />, adminOnly: true },
-  { label: 'Groups', path: '/groups', icon: <GroupIcon />, adminOnly: true },
-  { label: 'Permissions', path: '/permissions', icon: <VpnKeyIcon />, adminOnly: true },
-  { label: 'Resources', path: '/resources', icon: <CategoryIcon />, adminOnly: true },
+  { label: 'Dashboard', path: '/', icon: <DashboardIcon />, guard: null },
+  { label: 'Users', path: '/users', icon: <PeopleIcon />, guard: canViewUsers },
+  { label: 'Roles', path: '/roles', icon: <AdminPanelSettingsIcon />, guard: canViewRoles },
+  { label: 'Groups', path: '/groups', icon: <GroupIcon />, guard: canViewGroups },
+  { label: 'Permissions', path: '/permissions', icon: <VpnKeyIcon />, guard: canViewPermissions },
+  { label: 'Resources', path: '/resources', icon: <CategoryIcon />, guard: canViewResources },
+  { label: 'Profile', path: '/profile', icon: <PersonIcon />, guard: null },
 ];
 
 interface SidebarProps {
@@ -43,8 +50,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAppSelector((state) => state.auth);
 
   const filteredItems = MENU_ITEMS.filter((item) => {
-    if (!item.adminOnly) return true;
-    return user && isAdmin(user);
+    if (!item.guard) return true;
+    return user && item.guard(user);
   });
 
   const handleNavigation = (path: string) => {

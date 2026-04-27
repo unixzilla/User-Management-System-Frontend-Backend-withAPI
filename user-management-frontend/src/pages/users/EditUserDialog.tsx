@@ -17,7 +17,15 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { userUpdateSchema, type UserUpdateSchema } from '@/utils/validation';
-import { useUpdateUserMutation, useAssignRoleMutation, useRemoveRoleMutation, useGetRolesQuery } from '@/api';
+import {
+  useUpdateUserMutation,
+  useAssignRoleMutation,
+  useRemoveRoleMutation,
+  useGetRolesQuery,
+  useGetGroupsQuery,
+  useAddMemberToGroupMutation,
+  useRemoveMemberFromGroupMutation,
+} from '@/api';
 import { useSnackbar } from 'notistack';
 import { User } from '@/types';
 import CloseIcon from '@mui/icons-material/Close';
@@ -34,10 +42,16 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
   const [assignRole, { isLoading: assigning }] = useAssignRoleMutation();
   const [removeRole, { isLoading: removing }] = useRemoveRoleMutation();
+  const [addMemberToGroup] = useAddMemberToGroupMutation();
+  const [removeMemberFromGroup] = useRemoveMemberFromGroupMutation();
   const { data: allRoles = [], isLoading: rolesLoading } = useGetRolesQuery({});
+  const { data: groupsData } = useGetGroupsQuery();
+  const allGroups = groupsData?.items ?? [];
 
-  // Local copy of user roles for instant UI updates after assign/remove
+  const isSystemAdmin = user.roles.includes('admin');
+
   const [userRoles, setUserRoles] = useState<string[]>(user.roles);
+  const [userGroups, setUserGroups] = useState<string[]>(user.groups ?? []);
 
   const {
     register,
@@ -64,7 +78,16 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
     return allRoles.filter((role) => !userRoles.includes(role.name));
   }, [allRoles, userRoles]);
 
+  const currentGroups = React.useMemo(() => {
+    return allGroups.filter((g) => userGroups.includes(g.name));
+  }, [allGroups, userGroups]);
+
+  const availableGroups = React.useMemo(() => {
+    return allGroups.filter((g) => !userGroups.includes(g.name));
+  }, [allGroups, userGroups]);
+
   const [selectedRoleToAdd, setSelectedRoleToAdd] = useState<number | ''>('');
+  const [selectedGroupToAdd, setSelectedGroupToAdd] = useState<number | ''>('');
 
   React.useEffect(() => {
     if (open && user) {
@@ -76,7 +99,9 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
         is_verified: user.is_verified,
       });
       setSelectedRoleToAdd('');
+      setSelectedGroupToAdd('');
       setUserRoles(user.roles);
+      setUserGroups(user.groups ?? []);
     }
   }, [open, user, reset]);
 
@@ -92,6 +117,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
 
   const handleClose = () => {
     setSelectedRoleToAdd('');
+    setSelectedGroupToAdd('');
     onClose();
   };
 
@@ -119,13 +145,36 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
     }
   };
 
+  const handleAddGroup = async () => {
+    if (!selectedGroupToAdd) return;
+    const group = allGroups.find((g) => g.id === selectedGroupToAdd);
+    try {
+      await addMemberToGroup({ groupId: selectedGroupToAdd as number, data: { user_id: user.id } }).unwrap();
+      if (group) setUserGroups((prev) => [...prev, group.name]);
+      enqueueSnackbar('Group assigned successfully', { variant: 'success' });
+      setSelectedGroupToAdd('');
+    } catch (err: any) {
+      enqueueSnackbar(err.data?.detail || 'Failed to add user to group', { variant: 'error' });
+    }
+  };
+
+  const handleRemoveGroup = async (groupId: number) => {
+    const group = allGroups.find((g) => g.id === groupId);
+    try {
+      await removeMemberFromGroup({ groupId, userId: user.id }).unwrap();
+      if (group) setUserGroups((prev) => prev.filter((name) => name !== group.name));
+      enqueueSnackbar('Group removed successfully', { variant: 'success' });
+    } catch (err: any) {
+      enqueueSnackbar(err.data?.detail || 'Failed to remove user from group', { variant: 'error' });
+    }
+  };
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            {/* User Info Fields */}
             <TextField
               label="Email"
               {...register('email')}
@@ -156,9 +205,10 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
                     <Switch
                       checked={field.value}
                       onChange={field.onChange}
+                      disabled={isSystemAdmin}
                     />
                   }
-                  label="Active"
+                  label={isSystemAdmin ? 'Active (cannot deactivate admin)' : 'Active'}
                 />
               )}
             />
@@ -176,7 +226,6 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
               </Box>
             ) : (
               <>
-                {/* Current Roles */}
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Current Roles
@@ -202,7 +251,6 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
                   )}
                 </Box>
 
-                {/* Add New Role */}
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Add Role
@@ -240,6 +288,72 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
                 </Box>
               </>
             )}
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Group Management Section */}
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              Groups
+            </Typography>
+
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Current Groups
+              </Typography>
+              {currentGroups.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No groups assigned
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {currentGroups.map((group) => (
+                    <Chip
+                      key={group.id}
+                      label={group.name}
+                      onDelete={() => handleRemoveGroup(group.id)}
+                      color="secondary"
+                      deleteIcon={<CloseIcon />}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Add Group
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <select
+                  value={selectedGroupToAdd}
+                  onChange={(e) => setSelectedGroupToAdd(e.target.value ? parseInt(e.target.value, 10) : '')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(0, 0, 0, 0.23)',
+                    backgroundColor: 'white',
+                    fontSize: 'inherit',
+                  }}
+                  disabled={availableGroups.length === 0}
+                >
+                  <option value="">{availableGroups.length === 0 ? 'No groups available' : 'Select a group'}</option>
+                  {availableGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} {group.description ? `- ${group.description}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outlined"
+                  onClick={handleAddGroup}
+                  disabled={!selectedGroupToAdd || availableGroups.length === 0}
+                  startIcon={<AddIcon />}
+                >
+                  Add
+                </Button>
+              </Box>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>

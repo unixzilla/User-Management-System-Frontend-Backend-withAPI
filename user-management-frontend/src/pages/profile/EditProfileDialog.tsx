@@ -101,6 +101,18 @@ export function EditProfileDialog({ open, onClose, user }: EditProfileDialogProp
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField
+              label="Email"
+              value={user.email}
+              fullWidth
+              disabled
+            />
+            <TextField
+              label="Username"
+              value={user.username}
+              fullWidth
+              disabled
+            />
+            <TextField
               label="Full Name"
               {...register('full_name')}
               error={!!errors.full_name}

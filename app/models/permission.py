@@ -1,10 +1,13 @@
 """Permission SQLAlchemy ORM model."""
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import Integer, String, DateTime, Table, Column, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.postgres import Base
+
+if TYPE_CHECKING:
+    from app.models.resource import Resource
 
 role_permissions = Table(
     "role_permissions",
@@ -25,10 +28,16 @@ class Permission(Base):
     description: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     resource: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     action: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("resources.id", ondelete="CASCADE"), nullable=True, index=True
+    )
 
     roles: Mapped[list["Role"]] = relationship(
         "Role",
         secondary=role_permissions,
         back_populates="permissions",
         lazy="selectin",
+    )
+    resource_obj: Mapped[Optional["Resource"]] = relationship(
+        "Resource", back_populates="permissions", lazy="selectin"
     )

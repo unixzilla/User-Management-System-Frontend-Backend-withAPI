@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.group import UserGroup
 from app.schemas.group import UserGroupCreate, UserGroupUpdate, UserGroupOut, GroupMemberAdd
 from app.schemas.user import PaginatedResponse
-from app.dependencies import get_current_active_admin, get_db
+from app.dependencies import get_db, require_permission
 from app.services.group_service import group_service
 from app.core.exceptions import NotFoundError, ConflictError
 
@@ -21,19 +21,26 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 @router.get("/", response_model=PaginatedResponse[UserGroupOut])
 async def list_groups(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.read"))],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ) -> dict:
-    """List all groups with member counts (admin only)."""
+    """List all groups with member counts."""
     rows = await group_service.group_crud.get_multi_with_member_counts(
         db, skip=skip, limit=limit
     )
     items = []
     for group_obj, count in rows:
-        d = UserGroupOut.model_validate(group_obj).model_dump()
-        d["member_count"] = count
-        items.append(d)
+        items.append({
+            "id": group_obj.id,
+            "name": group_obj.name,
+            "description": group_obj.description,
+            "member_count": count,
+            "members": [],
+            "roles": [],
+            "created_at": group_obj.created_at,
+            "updated_at": group_obj.updated_at,
+        })
 
     total_result = await db.execute(select(func.count()).select_from(UserGroup))
     total = total_result.scalar_one()
@@ -45,9 +52,9 @@ async def create_group(
     request: Request,
     group_in: UserGroupCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.write"))],
 ):
-    """Create a new user group (admin only)."""
+    """Create a new user group."""
     return await group_service.create_group(
         db,
         name=group_in.name,
@@ -62,9 +69,9 @@ async def create_group(
 async def get_group(
     group_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.read"))],
 ):
-    """Get group detail with members and roles (admin only)."""
+    """Get group detail with members and roles."""
     g = await group_service.group_crud.get_with_members(db, group_id)
     if g is None:
         raise NotFoundError(detail="Group not found")
@@ -79,9 +86,9 @@ async def update_group(
     group_id: int,
     group_in: UserGroupUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.write"))],
 ):
-    """Update a user group (admin only)."""
+    """Update a user group."""
     return await group_service.update_group(
         db,
         group_id=group_id,
@@ -98,9 +105,9 @@ async def delete_group(
     request: Request,
     group_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.delete"))],
 ) -> dict:
-    """Delete a user group (admin only)."""
+    """Delete a user group."""
     success = await group_service.delete_group(
         db,
         group_id=group_id,
@@ -119,13 +126,14 @@ async def add_member_to_group(
     group_id: int,
     body: GroupMemberAdd,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.write"))],
 ) -> dict:
-    """Add a user to a group (admin only)."""
+    """Add a user to a group."""
     success = await group_service.add_member(
         db,
         group_id=group_id,
         user_id=UUID(body.user_id),
+        actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
@@ -141,13 +149,14 @@ async def remove_member_from_group(
     group_id: int,
     user_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.write"))],
 ) -> dict:
-    """Remove a user from a group (admin only)."""
+    """Remove a user from a group."""
     success = await group_service.remove_member(
         db,
         group_id=group_id,
         user_id=UUID(user_id),
+        actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
@@ -162,14 +171,15 @@ async def assign_role_to_group(
     request: Request,
     group_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.write"))],
     role_id: int = Query(..., description="Role ID to assign"),
 ) -> dict:
-    """Assign a role to a group (admin only)."""
+    """Assign a role to a group."""
     success = await group_service.assign_role_to_group(
         db,
         group_id=group_id,
         role_id=role_id,
+        actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
@@ -185,13 +195,14 @@ async def remove_role_from_group(
     group_id: int,
     role_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("groups.write"))],
 ) -> dict:
-    """Remove a role from a group (admin only)."""
+    """Remove a role from a group."""
     success = await group_service.remove_role_from_group(
         db,
         group_id=group_id,
         role_id=role_id,
+        actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),

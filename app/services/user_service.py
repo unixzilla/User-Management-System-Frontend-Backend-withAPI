@@ -10,7 +10,7 @@ from app.models.user import User
 from app.models.role import Role
 from app.schemas.user import UserCreate, UserUpdate
 from app.services.audit_service import audit_service
-from app.core.exceptions import ConflictError, NotFoundError, BadRequestError
+from app.core.exceptions import ConflictError, NotFoundError, BadRequestError, ForbiddenError
 
 
 class UserService:
@@ -111,10 +111,16 @@ class UserService:
         user_agent: Optional[str] = None,
     ) -> Optional[User]:
         """Update an existing user."""
+        from app.config import settings
+
         # Fetch current user to track changes
         user = await self.user_crud.get_with_roles(db, user_id)
         if user is None or user.deleted_at is not None:
             raise NotFoundError(detail="User not found")
+
+        # Prevent deactivating the system admin user
+        if user.email == settings.first_superuser_email and user_in.is_active is False:
+            raise ConflictError(detail="Cannot deactivate the system administrator account")
 
         update_data = user_in.model_dump(exclude_unset=True)
         changed_fields = list(update_data.keys())
@@ -155,15 +161,26 @@ class UserService:
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> bool:
-        """Soft delete a user."""
-        user = await self.user_crud.get(db, user_id)
+        """Hard delete a user — removes from database completely."""
+        user = await self.user_crud.get_with_roles(db, user_id)
         if user is None or user.deleted_at is not None:
             raise NotFoundError(detail="User not found")
 
-        # Get role count for audit
-        roles_before = len(user.roles) if user.roles else 0
+        # Prevent self-deletion
+        if actor_id is not None and str(user_id) == str(actor_id):
+            raise ConflictError(detail="Cannot delete your own account")
 
-        success = await self.user_crud.soft_delete(db, user_id=user_id)
+        # Protect system admin user from deletion
+        from app.config import settings
+        if user.email == settings.first_superuser_email:
+            raise ConflictError(detail="Cannot delete the system administrator account")
+
+        # Get counts for audit before deletion
+        roles_before = len(user.roles) if user.roles else 0
+        groups_before = len(user.groups) if user.groups else 0
+
+        # Hard delete — FK cascade handles role/group cleanup automatically
+        success = await self.user_crud.delete(db, user_id)
 
         if success:
             await audit_service.log(
@@ -171,7 +188,7 @@ class UserService:
                 actor_id=actor_id,
                 target_id=user_id,
                 target_type="user",
-                payload={"roles_removed": roles_before},
+                payload={"roles_removed": roles_before, "groups_removed": groups_before},
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
@@ -184,6 +201,7 @@ class UserService:
         *,
         user_id: UUID,
         role_id: int,
+        actor: Optional[User] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
@@ -198,6 +216,10 @@ class UserService:
         role = await self.role_crud.get(db, role_id)
         if role is None:
             raise NotFoundError(detail="Role not found")
+
+        # Only admin can assign the admin role
+        if role.name == "admin" and (actor is None or not actor.is_admin):
+            raise ForbiddenError(detail="Only administrators can assign the admin role")
 
         success = await self.user_crud.assign_role(db, user_id=user_id, role_id=role_id)
 
@@ -220,11 +242,25 @@ class UserService:
         *,
         user_id: UUID,
         role_id: int,
+        actor: Optional[User] = None,
         actor_id: Optional[UUID] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> bool:
         """Remove a role from a user."""
+        from app.config import settings
+
+        # Verify role exists and only admin can remove the admin role
+        role = await self.role_crud.get(db, role_id)
+        if role and role.name == "admin" and (actor is None or not actor.is_admin):
+            raise ForbiddenError(detail="Only administrators can remove the admin role")
+
+        # Prevent removing the admin role from the system administrator account
+        if role and role.name == "admin":
+            user = await self.user_crud.get(db, user_id)
+            if user and user.email == settings.first_superuser_email:
+                raise ConflictError(detail="Cannot remove the admin role from the system administrator account")
+
         success = await self.user_crud.remove_role(db, user_id=user_id, role_id=role_id)
 
         if success:

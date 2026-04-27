@@ -67,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'SET_LOADING' });
     try {
       const result = await loginMutation(credentials).unwrap();
+      // Clear any stale user data from previous session before storing new tokens
+      storage.clearAll();
       storage.setAccessToken(result.access_token);
       storage.setRefreshToken(result.refresh_token);
       const { data: user } = await axiosInstance.get<User>('/users/me');

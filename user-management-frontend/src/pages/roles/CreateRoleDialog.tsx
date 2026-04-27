@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,12 +7,21 @@ import {
   Button,
   TextField,
   Box,
+  Chip,
+  Typography,
+  Paper,
+  CircularProgress,
 } from '@mui/material';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { roleCreateSchema, type RoleCreateSchema } from '@/utils/validation';
-import { useCreateRoleMutation } from '@/api';
+import {
+  useCreateRoleMutation,
+  useGetPermissionsQuery,
+  useAssignPermissionToRoleMutation,
+} from '@/api';
 import { useSnackbar } from 'notistack';
+import { Permission } from '@/types';
 
 interface CreateRoleDialogProps {
   open: boolean;
@@ -22,6 +31,10 @@ interface CreateRoleDialogProps {
 export function CreateRoleDialog({ open, onClose }: CreateRoleDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
   const [createRole, { isLoading }] = useCreateRoleMutation();
+  const [assignPermission] = useAssignPermissionToRoleMutation();
+  const { data: permData, isLoading: permsLoading } = useGetPermissionsQuery();
+  const allPermissions = permData?.items ?? [];
+  const [selectedPermIds, setSelectedPermIds] = useState<Set<number>>(new Set());
 
   const {
     register,
@@ -35,14 +48,43 @@ export function CreateRoleDialog({ open, onClose }: CreateRoleDialogProps) {
   React.useEffect(() => {
     if (open) {
       reset();
+      setSelectedPermIds(new Set());
     }
   }, [open, reset]);
 
+  const togglePermission = (permId: number) => {
+    setSelectedPermIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(permId)) next.delete(permId);
+      else next.add(permId);
+      return next;
+    });
+  };
+
+  const permissionsByResource = useMemo(() => {
+    const map: Record<string, Permission[]> = {};
+    for (const p of allPermissions) {
+      const r = p.resource;
+      if (!map[r]) map[r] = [];
+      map[r].push(p);
+    }
+    return map;
+  }, [allPermissions]);
+
   const onSubmit = async (data: RoleCreateSchema) => {
     try {
-      await createRole(data).unwrap();
+      const result = await createRole(data).unwrap();
+      // Assign selected permissions
+      if (selectedPermIds.size > 0) {
+        await Promise.all(
+          Array.from(selectedPermIds).map((permId) =>
+            assignPermission({ roleId: result.id, permissionId: permId }).unwrap()
+          )
+        );
+      }
       enqueueSnackbar('Role created successfully', { variant: 'success' });
       reset();
+      setSelectedPermIds(new Set());
       onClose();
     } catch (err: any) {
       enqueueSnackbar(err.data?.detail || 'Failed to create role', { variant: 'error' });
@@ -51,11 +93,12 @@ export function CreateRoleDialog({ open, onClose }: CreateRoleDialogProps) {
 
   const handleClose = () => {
     reset();
+    setSelectedPermIds(new Set());
     onClose();
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogTitle>Create New Role</DialogTitle>
         <DialogContent>
@@ -74,8 +117,39 @@ export function CreateRoleDialog({ open, onClose }: CreateRoleDialogProps) {
               helperText={errors.description?.message}
               fullWidth
               multiline
-              rows={3}
+              rows={2}
             />
+
+            <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 600 }}>
+              Permissions
+            </Typography>
+            {permsLoading ? (
+              <CircularProgress size={20} />
+            ) : (
+              Object.entries(permissionsByResource).map(([resource, perms]) => (
+                <Paper key={resource} variant="outlined" sx={{ p: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5, textTransform: 'capitalize', fontWeight: 600 }}>
+                    {resource}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {perms.map((perm) => {
+                      const selected = selectedPermIds.has(perm.id);
+                      return (
+                        <Chip
+                          key={perm.id}
+                          label={`${perm.action}${perm.description ? ` — ${perm.description}` : ''}`}
+                          color={selected ? 'primary' : 'default'}
+                          variant={selected ? 'filled' : 'outlined'}
+                          onClick={() => togglePermission(perm.id)}
+                          size="small"
+                          sx={{ cursor: 'pointer' }}
+                        />
+                      );
+                    })}
+                  </Box>
+                </Paper>
+              ))
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

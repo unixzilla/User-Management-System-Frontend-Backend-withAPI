@@ -1,5 +1,4 @@
 import { baseApi } from './baseApi';
-import { storage } from '@/utils/storage';
 import { logout } from '@/store/authSlice';
 import { TokenPair, LoginRequest } from '@/types';
 
@@ -11,15 +10,6 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: credentials,
       }),
-      async onQueryStarted(args, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          storage.setAccessToken(data.access_token);
-          storage.setRefreshToken(data.refresh_token);
-        } catch (err) {
-          // Error handled by the mutation itself
-        }
-      },
     }),
     logout: builder.mutation<void, void>({
       query: () => ({

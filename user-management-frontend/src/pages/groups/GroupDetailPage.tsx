@@ -22,12 +22,13 @@ import {
   DialogContent,
   DialogActions,
   InputAdornment,
+  MenuItem,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import AddIcon from '@mui/icons-material/Add';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useLocation } from '@tanstack/react-router';
 import {
   useGetGroupsQuery,
   useGetGroupQuery,
@@ -43,13 +44,17 @@ import { useAppSelector } from '@/hooks.redux';
 import { User, Role } from '@/types';
 import { useSnackbar } from 'notistack';
 
-export function GroupDetailPage(props: { groupId?: string }) {
-  const groupId = props.groupId || '';
+export function GroupDetailPage() {
+  const location = useLocation();
+  const groupId = location.pathname.split('/').pop() || '';
+  const numericGroupId = parseInt(groupId, 10);
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const { user: currentUser } = useAppSelector((state) => state.auth);
 
-  const { data: group, isLoading: groupLoading } = useGetGroupQuery(parseInt(groupId, 10));
+  const { data: group, isLoading: groupLoading, error: groupError } = useGetGroupQuery(numericGroupId, {
+    skip: !groupId || isNaN(numericGroupId),
+  });
   const { data: usersData, isLoading: usersLoading } = useGetUsersQuery({});
   const allUsers = usersData?.items ?? [];
   const { data: allRoles = [], isLoading: rolesLoading } = useGetRolesQuery({});
@@ -165,10 +170,13 @@ export function GroupDetailPage(props: { groupId?: string }) {
   }
 
   if (!group) {
+    const errorMsg = groupError
+      ? ((groupError as any)?.data?.detail || (groupError as any)?.error || 'Failed to load group')
+      : `Group with ID ${groupId} not found`;
     return (
       <Container maxWidth="lg">
         <Box sx={{ mt: 4 }}>
-          <Alert severity="error">Group not found</Alert>
+          <Alert severity="error">{errorMsg}</Alert>
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate({ to: '/groups' })} sx={{ mt: 2 }}>
             Back to Groups
           </Button>
@@ -253,9 +261,9 @@ export function GroupDetailPage(props: { groupId?: string }) {
                 htmlInput: { sx: { minWidth: 150 } },
               }}
             >
-              <option value="">Select a role</option>
+              <MenuItem value="">Select a role</MenuItem>
               {availableRoles.map((role) => (
-                <option key={role.id} value={role.id}>{role.name}</option>
+                <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
               ))}
             </TextField>
             <Button

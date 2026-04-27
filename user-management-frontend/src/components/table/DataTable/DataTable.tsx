@@ -17,7 +17,7 @@ export interface ColumnDef<T> {
   label: string;
   minWidth?: number;
   align?: 'left' | 'right' | 'center';
-  format?: (value: unknown) => React.ReactNode;
+  format?: (value: unknown, row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -95,7 +95,7 @@ export function DataTable<T>({
                     }
                     return (
                       <TableCell key={column.id as string} align={column.align || 'left'}>
-                        {column.format ? column.format(value) : (value as React.ReactNode)}
+                        {column.format ? column.format(value, row) : (value as React.ReactNode)}
                       </TableCell>
                     );
                   })}

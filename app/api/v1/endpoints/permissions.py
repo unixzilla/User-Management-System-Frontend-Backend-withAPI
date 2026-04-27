@@ -15,7 +15,7 @@ from app.schemas.permission import (
     RolePermissionsUpdate,
 )
 from app.schemas.user import PaginatedResponse
-from app.dependencies import get_current_active_admin, get_db
+from app.dependencies import get_db, require_permission
 from app.services.permission_service import permission_service
 from app.core.exceptions import NotFoundError, ConflictError
 
@@ -25,14 +25,32 @@ router = APIRouter(prefix="/permissions", tags=["permissions"])
 @router.get("/", response_model=PaginatedResponse[PermissionOut])
 async def list_permissions(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.read"))],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    search: str | None = Query(None, description="Search by name, resource, or action"),
 ) -> dict:
-    """List all permissions (admin only)."""
-    perms = await permission_service.permission_crud.get_multi(db, skip=skip, limit=limit)
-    total_result = await db.execute(select(func.count()).select_from(Permission))
+    """List all permissions with optional search and pagination."""
+    query = select(Permission)
+    count_query = select(func.count()).select_from(Permission)
+
+    if search:
+        pattern = f"%{search}%"
+        filter_clause = (
+            Permission.name.ilike(pattern)
+            | Permission.resource.ilike(pattern)
+            | Permission.action.ilike(pattern)
+        )
+        query = query.where(filter_clause)
+        count_query = count_query.where(filter_clause)
+
+    total_result = await db.execute(count_query)
     total = total_result.scalar_one()
+
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    perms = result.scalars().all()
+
     return {"items": perms, "total": total, "skip": skip, "limit": limit}
 
 
@@ -41,15 +59,16 @@ async def create_permission(
     request: Request,
     perm_in: PermissionCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
 ):
-    """Create a new permission (admin only)."""
+    """Create a new permission."""
     return await permission_service.create_permission(
         db,
         name=perm_in.name,
         description=perm_in.description,
         resource=perm_in.resource,
         action=perm_in.action,
+        resource_id=perm_in.resource_id,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
@@ -62,9 +81,9 @@ async def update_permission(
     permission_id: int,
     perm_in: PermissionUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
 ):
-    """Update a permission (admin only)."""
+    """Update a permission."""
     return await permission_service.update_permission(
         db,
         permission_id=permission_id,
@@ -80,9 +99,9 @@ async def delete_permission(
     request: Request,
     permission_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.delete"))],
 ) -> dict:
-    """Delete a permission (admin only)."""
+    """Delete a permission."""
     success = await permission_service.delete_permission(
         db,
         permission_id=permission_id,
@@ -99,9 +118,9 @@ async def delete_permission(
 async def get_role_permissions(
     role_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.read"))],
 ) -> list:
-    """Get all permissions for a specific role (admin only)."""
+    """Get all permissions for a specific role."""
     return await permission_service.get_role_permissions(db, role_id)
 
 
@@ -111,9 +130,9 @@ async def set_role_permissions(
     role_id: int,
     body: RolePermissionsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
 ) -> dict:
-    """Replace all permissions for a role (admin only)."""
+    """Replace all permissions for a role."""
     await permission_service.set_role_permissions(
         db,
         role_id=role_id,
@@ -130,10 +149,10 @@ async def assign_permission_to_role(
     request: Request,
     role_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
     permission_id: int = Query(..., description="Permission ID to assign"),
 ) -> dict:
-    """Assign a permission to a role (admin only)."""
+    """Assign a permission to a role."""
     success = await permission_service.assign_permission_to_role(
         db,
         role_id=role_id,
@@ -153,9 +172,9 @@ async def remove_permission_from_role(
     role_id: int,
     permission_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
 ) -> dict:
-    """Remove a permission from a role (admin only)."""
+    """Remove a permission from a role."""
     success = await permission_service.remove_permission_from_role(
         db,
         role_id=role_id,

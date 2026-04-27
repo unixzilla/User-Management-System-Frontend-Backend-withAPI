@@ -24,7 +24,7 @@ import { EditResourceDialog } from './EditResourceDialog';
 import { DeleteResourceDialog } from './DeleteResourceDialog';
 
 export function ResourcesPage() {
-  const { canManageResources } = usePermissions();
+  const { canViewResources, canManageResources, canDeleteResources } = usePermissions();
   const { data: resourcesResponse, isLoading } = useGetResourcesQuery();
   const resources = resourcesResponse?.items ?? [];
 
@@ -34,7 +34,7 @@ export function ResourcesPage() {
   const [openDelete, setOpenDelete] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
-  if (!canManageResources()) {
+  if (!canViewResources()) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ py: 4 }}>
@@ -50,9 +50,11 @@ export function ResourcesPage() {
     <Container maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Resources</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
-          Create Resource
-        </Button>
+        {canManageResources() && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
+            Create Resource
+          </Button>
+        )}
       </Box>
 
       <Paper sx={{ p: 2 }}>
@@ -73,25 +75,29 @@ export function ResourcesPage() {
                   <TableCell sx={{ fontWeight: 500 }}>{resource.name}</TableCell>
                   <TableCell>{resource.description || '-'}</TableCell>
                   <TableCell align="right">
-                    <IconButton
-                      color="primary"
-                      onClick={() => {
-                        setSelectedResourceForEdit(resource);
-                        setOpenEdit(true);
-                      }}
-                      sx={{ mr: 1 }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => {
-                        setSelectedResource(resource);
-                        setOpenDelete(true);
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    {canManageResources() && (
+                      <IconButton
+                        color="primary"
+                        onClick={() => {
+                          setSelectedResourceForEdit(resource);
+                          setOpenEdit(true);
+                        }}
+                        sx={{ mr: 1 }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    )}
+                    {canDeleteResources() && (
+                      <IconButton
+                        color="error"
+                        onClick={() => {
+                          setSelectedResource(resource);
+                          setOpenDelete(true);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

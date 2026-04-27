@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DataTable } from '../DataTable/DataTable';
 import { User } from '@/types';
-import { userTableColumns } from './UserTableColumns';
+import { getUserTableColumns } from './UserTableColumns';
 
 interface UserTableProps {
   users: User[];
@@ -11,6 +11,7 @@ interface UserTableProps {
   totalCount: number;
   onPageChange: (page: number, rowsPerPage: number) => void;
   onRowClick?: (user: User) => void;
+  onDelete?: (user: User) => void;
 }
 
 export function UserTable({
@@ -21,10 +22,13 @@ export function UserTable({
   totalCount,
   onPageChange,
   onRowClick,
+  onDelete,
 }: UserTableProps) {
+  const columns = useMemo(() => getUserTableColumns(onDelete), [onDelete]);
+
   return (
     <DataTable
-      columns={userTableColumns}
+      columns={columns}
       rows={users}
       loading={loading}
       page={page}

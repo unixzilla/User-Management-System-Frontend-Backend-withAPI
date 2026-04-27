@@ -9,7 +9,7 @@ from app.services.role_service import role_service
 from app.services.user_service import user_service
 from app.models.user import User
 from app.schemas.role import RoleCreate, RoleUpdate, RoleOut
-from app.dependencies import get_current_user, get_current_active_admin, get_db
+from app.dependencies import get_current_user, get_current_active_admin, get_db, require_permission
 
 router = APIRouter(prefix="/roles", tags=["roles"])
 
@@ -17,11 +17,11 @@ router = APIRouter(prefix="/roles", tags=["roles"])
 @router.get("/", response_model=list[RoleOut])
 async def list_roles(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("roles.read"))],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ) -> list:
-    """List all roles (admin only)."""
+    """List all roles."""
     return await role_service.get_multi(db, skip=skip, limit=limit)
 
 
@@ -30,9 +30,9 @@ async def create_role(
     request: Request,
     role_in: RoleCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("roles.write"))],
 ) -> dict:
-    """Create a new role (admin only)."""
+    """Create a new role."""
     try:
         return await role_service.create_role(
             db,
@@ -52,9 +52,9 @@ async def update_role(
     role_id: int,
     role_in: RoleUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("roles.write"))],
 ) -> RoleOut:
-    """Update an existing role (admin only)."""
+    """Update an existing role."""
     return await role_service.update_role(
         db,
         role_id=role_id,
@@ -71,9 +71,9 @@ async def delete_role(
     request: Request,
     role_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_admin)],
+    current_user: Annotated[User, Depends(require_permission("roles.delete"))],
 ) -> dict:
-    """Delete a role (admin only)."""
+    """Delete a role."""
     success = await role_service.delete_role(
         db,
         role_id=role_id,

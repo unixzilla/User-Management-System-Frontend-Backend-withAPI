@@ -26,7 +26,7 @@ import { EditGroupDialog } from './EditGroupDialog';
 
 export function GroupsPage() {
   const navigate = useNavigate();
-  const { canManageGroups } = usePermissions();
+  const { canViewGroups, canManageGroups, canDeleteGroups } = usePermissions();
   const { data: groupsData, isLoading } = useGetGroupsQuery();
   const groups = groupsData?.items ?? [];
   const [selectedGroup, setSelectedGroup] = useState<UserGroup | null>(null);
@@ -35,7 +35,7 @@ export function GroupsPage() {
   const [openDelete, setOpenDelete] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
-  if (!canManageGroups()) {
+  if (!canViewGroups()) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ py: 4 }}>
@@ -51,9 +51,11 @@ export function GroupsPage() {
     <Container maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Groups</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
-          Create Group
-        </Button>
+        {canManageGroups() && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
+            Create Group
+          </Button>
+        )}
       </Box>
 
       <Paper sx={{ p: 2 }}>
@@ -81,27 +83,42 @@ export function GroupsPage() {
                     </Button>
                   </TableCell>
                   <TableCell>{group.description || '-'}</TableCell>
-                  <TableCell align="center">{group.member_count}</TableCell>
+                  <TableCell align="center">
+                    {group.member_count > 0 ? (
+                      <Button
+                        onClick={() => navigate({ to: '/groups/$groupId', params: { groupId: group.id.toString() } })}
+                        sx={{ textTransform: 'none', fontWeight: 600, p: 0, minWidth: 'unset' }}
+                      >
+                        {group.member_count}
+                      </Button>
+                    ) : (
+                      group.member_count
+                    )}
+                  </TableCell>
                   <TableCell align="right">
-                    <IconButton
-                      color="primary"
-                      onClick={() => {
-                        setSelectedGroupForEdit(group);
-                        setOpenEdit(true);
-                      }}
-                      sx={{ mr: 1 }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => {
-                        setSelectedGroup(group);
-                        setOpenDelete(true);
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    {canManageGroups() && (
+                      <IconButton
+                        color="primary"
+                        onClick={() => {
+                          setSelectedGroupForEdit(group);
+                          setOpenEdit(true);
+                        }}
+                        sx={{ mr: 1 }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    )}
+                    {canDeleteGroups() && (
+                      <IconButton
+                        color="error"
+                        onClick={() => {
+                          setSelectedGroup(group);
+                          setOpenDelete(true);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

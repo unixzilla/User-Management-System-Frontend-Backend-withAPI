@@ -15,7 +15,8 @@ class PermissionBase(BaseModel):
 
 class PermissionCreate(PermissionBase):
     """Schema for creating a permission."""
-    pass
+
+    resource_id: Optional[int] = None
 
 
 class PermissionUpdate(BaseModel):
@@ -25,6 +26,7 @@ class PermissionUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=255)
     resource: Optional[str] = Field(None, min_length=1, max_length=50)
     action: Optional[str] = Field(None, min_length=1, max_length=50)
+    resource_id: Optional[int] = None
 
 
 class PermissionOut(PermissionBase):

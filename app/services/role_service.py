@@ -66,6 +66,8 @@ class RoleService:
         role = await self.role_crud.get(db, role_id)
         if role is None:
             raise NotFoundError(detail=f"Role with id {role_id} not found")
+        if role.name == "admin":
+            raise ConflictError(detail="Cannot modify the 'admin' role")
 
         update_data = {}
         if name is not None:

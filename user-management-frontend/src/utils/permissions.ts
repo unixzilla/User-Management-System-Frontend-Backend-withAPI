@@ -9,10 +9,23 @@ export const hasRole = (user: User | null, role: string): boolean =>
 export const isAdmin = (user: User | null): boolean =>
   hasPermission(user, 'admin');
 
-// Granular permission checks
+// View permissions (read)
 export const canViewUsers = (user: User | null): boolean =>
   hasPermission(user, 'users.read');
 
+export const canViewRoles = (user: User | null): boolean =>
+  hasPermission(user, 'roles.read');
+
+export const canViewGroups = (user: User | null): boolean =>
+  hasPermission(user, 'groups.read');
+
+export const canViewPermissions = (user: User | null): boolean =>
+  hasPermission(user, 'permissions.read');
+
+export const canViewResources = (user: User | null): boolean =>
+  hasPermission(user, 'permissions.read');
+
+// Manage permissions (write)
 export const canEditUsers = (user: User | null): boolean =>
   hasPermission(user, 'users.write');
 
@@ -22,14 +35,26 @@ export const canDeleteUsers = (user: User | null): boolean =>
 export const canManageRoles = (user: User | null): boolean =>
   hasPermission(user, 'roles.write');
 
-export const canManagePermissions = (user: User | null): boolean =>
-  hasPermission(user, 'permissions.write');
+export const canDeleteRoles = (user: User | null): boolean =>
+  hasPermission(user, 'roles.delete');
 
 export const canManageGroups = (user: User | null): boolean =>
   hasPermission(user, 'groups.write');
 
+export const canDeleteGroups = (user: User | null): boolean =>
+  hasPermission(user, 'groups.delete');
+
+export const canManagePermissions = (user: User | null): boolean =>
+  hasPermission(user, 'permissions.write');
+
+export const canDeletePermissions = (user: User | null): boolean =>
+  hasPermission(user, 'permissions.delete');
+
 export const canManageResources = (user: User | null): boolean =>
   hasPermission(user, 'permissions.write');
+
+export const canDeleteResources = (user: User | null): boolean =>
+  hasPermission(user, 'permissions.delete');
 
 // Composite checks
 export const canViewUser = (currentUser: User | null, targetUserId: string): boolean =>

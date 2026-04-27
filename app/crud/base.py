@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.user import User
 from app.models.role import Role
 
-ModelType = TypeVar("ModelType", User, Role)
+ModelType = TypeVar("ModelType")
 
 
 class CRUDBase:
