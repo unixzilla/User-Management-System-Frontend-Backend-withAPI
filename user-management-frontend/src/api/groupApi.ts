@@ -11,6 +11,7 @@ export const groupApi = baseApi.injectEndpoints({
     getGroup: builder.query<UserGroup, number>({
       query: (groupId) => `/groups/${groupId}`,
       providesTags: (_result, _error, groupId) => [{ type: 'Group' as const, id: groupId }],
+      extraOptions: { refetchOnMountOrArgChange: true },
     }),
 
     createGroup: builder.mutation<UserGroup, UserGroupCreate>({

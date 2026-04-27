@@ -13,6 +13,7 @@ export const userApi = baseApi.injectEndpoints({
     getUser: builder.query<User, string>({
       query: (userId) => `/users/${userId}`,
       providesTags: (_result, _error, userId) => [{ type: 'User', id: userId }],
+      extraOptions: { refetchOnMountOrArgChange: true },
     }),
     createUser: builder.mutation<User, UserCreate>({
       query: (user) => ({

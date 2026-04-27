@@ -26,6 +26,7 @@ export const permissionApi = baseApi.injectEndpoints({
     getRolePermissions: builder.query<Permission[], number>({
       query: (roleId) => `/permissions/roles/${roleId}/permissions`,
       providesTags: (_result, _error, roleId) => [{ type: 'Permission' as const, id: roleId }],
+      extraOptions: { refetchOnMountOrArgChange: true },
     }),
 
     createPermission: builder.mutation<Permission, PermissionCreate>({

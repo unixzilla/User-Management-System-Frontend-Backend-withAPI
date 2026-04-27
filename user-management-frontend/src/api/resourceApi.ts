@@ -16,6 +16,7 @@ export const resourceApi = baseApi.injectEndpoints({
     getResource: builder.query<Resource, number>({
       query: (resourceId) => `/resources/${resourceId}`,
       providesTags: (_result, _error, resourceId) => [{ type: 'Resource' as const, id: resourceId }],
+      extraOptions: { refetchOnMountOrArgChange: true },
     }),
 
     createResource: builder.mutation<Resource, ResourceCreate>({
