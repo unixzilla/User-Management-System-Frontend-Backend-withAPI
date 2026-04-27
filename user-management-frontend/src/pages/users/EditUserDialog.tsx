@@ -67,7 +67,6 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
       username: user.username,
       full_name: user.full_name || '',
       is_active: user.is_active,
-      is_verified: user.is_verified,
     },
   });
 
@@ -97,7 +96,6 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
         username: user.username,
         full_name: user.full_name || '',
         is_active: user.is_active,
-        is_verified: user.is_verified,
       });
       setSelectedRoleToAdd('');
       setSelectedGroupToAdd('');

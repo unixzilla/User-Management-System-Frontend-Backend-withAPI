@@ -24,7 +24,6 @@ export interface UserUpdate {
   full_name?: string | null;
   password?: string;
   is_active?: boolean;
-  is_verified?: boolean;
 }
 
 export interface UserListParams {
