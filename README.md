@@ -35,8 +35,11 @@ A production-ready User Management Web Service built with **FastAPI**, **Postgre
 - **Granular Permission System**: 12 resource-scoped permissions + admin wildcard, role-permission associations, FK-linked resources
 - **Resource Management**: Dedicated `resources` table with FK from permissions, cascade delete, protected default resources
 - **User Groups**: Group users together, assign roles to groups for inherited permissions, member-based delete protection, seeded admin group protection
-- **JWT Authentication**: Access tokens (15 min) + refresh tokens (7 days), session expiration handling
+- **JWT Authentication**: Access tokens (15 min) + refresh tokens (7 days), token revocation
 - **Audit Logging**: All mutations logged to MongoDB asynchronously
+- **Error Tracking**: Server errors (500) persisted to MongoDB with full traceback, request correlation ID, and admin dashboard
+- **Rate Limiting**: Configurable per-IP sliding-window rate limiter (in-memory; Redis-backed recommended for production)
+- **Correlation IDs**: Every request has a `X-Request-ID` UUID header for cross-system tracing and user reporting
 - **PostgreSQL Advanced Features**: Views, CTEs, Window Functions, Stored Procedures
 - **Async-First**: All database operations are async
 - **Auto-Seeding**: Idempotent startup seeding (resources → roles → permissions → groups → users)
@@ -101,9 +104,10 @@ The authorization model uses granular, resource-scoped permissions attached to r
 |----------|------|-------|--------|
 | `users` | `users.read` | `users.write` | `users.delete` |
 | `roles` | `roles.read` | `roles.write` | `roles.delete` |
-| `permissions` | `permissions.read` | `permissions.write` | — |
+| `permissions` | `permissions.read` | `permissions.write` | `permissions.delete` |
 | `groups` | `groups.read` | `groups.write` | `groups.delete` |
-| `resources` | *(via permissions)* | `permissions.write` | `permissions.delete` |
+| `resources` | `resources.read` | `resources.write` | `resources.delete` |
+| `errors` | `errors.read` | — | — |
 
 Plus one wildcard: **`admin`** (`resource=*`, `action=*`) — grants all permissions.
 
@@ -114,8 +118,8 @@ Permissions now reference resources via `resource_id` FK (denormalized `resource
 | Role | Permissions |
 |------|-------------|
 | `admin` | `admin` |
-| `editor` | `users.read`, `users.write`, `roles.read`, `permissions.read`, `groups.read`, `groups.write` |
-| `viewer` | `users.read`, `roles.read`, `permissions.read`, `groups.read` |
+| `editor` | `users.read`, `users.write`, `roles.read`, `permissions.read`, `groups.read`, `resources.read`, `errors.read` |
+| `viewer` | `users.read`, `roles.read`, `permissions.read`, `groups.read`, `resources.read`, `errors.read` |
 | `guest` | *(none)* |
 
 ### Permission Inheritance
@@ -165,6 +169,8 @@ Users can be organized into groups. Each group can have roles assigned, and thos
 | `GUEST_USER_PASSWORD` | Guest user password | `guest123` |
 | `GUEST_USER_USERNAME` | Guest username | `guest` |
 | `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:3000","http://localhost:8080"]` |
+| `RATE_LIMIT_REQUESTS` | Max requests per window per IP (set to `0` to disable) | `300` |
+| `RATE_LIMIT_WINDOW_SECONDS` | Rate limit window duration | `60` |
 
 ### Frontend (Docker-only)
 
@@ -241,6 +247,35 @@ All endpoints are prefixed with `/api/v1`.
 | GET | `/{resource_id}` | `permissions.read` | Get resource by ID |
 | PATCH | `/{resource_id}` | `permissions.write` | Update resource (protected defaults blocked) |
 | DELETE | `/{resource_id}` | `permissions.delete` | Delete resource + cascade delete permissions |
+
+### Error Logs (`/api/v1/errors`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | `errors.read` | List error logs (paginated, searchable by request ID/path/exception) |
+| GET | `/{error_id}` | `errors.read` | Get error detail (includes full traceback) |
+
+Error logs are stored in MongoDB `error_logs` collection. Each error captured by the global exception handler includes:
+
+```json
+{
+  "_id": "ObjectId",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-04-27T14:30:00Z",
+  "method": "POST",
+  "path": "/api/v1/users/",
+  "status_code": 500,
+  "detail": "ValueError: ...",
+  "exception_type": "ValueError",
+  "exception_message": "Invalid state",
+  "traceback": "Traceback (most recent call last):\n  ...",
+  "user_id": "...",
+  "ip_address": "192.168.1.1",
+  "user_agent": "Mozilla/5.0 ..."
+}
+```
+
+> **Note:** HTTP-level exceptions (401, 403, 404, 409, 422, 429) are handled by a separate handler and do NOT appear in the error logs — only true 500 internal server errors are persisted.
 
 ## Database Design
 
@@ -334,6 +369,54 @@ user-management-service/
 ├── .env.example                      # Environment template
 └── README.md                         # This file
 ```
+
+## Security & Resilience
+
+### Rate Limiting
+
+Per-IP sliding-window rate limiter to protect against brute-force and DoS attacks.
+
+```
+RATE_LIMIT_REQUESTS=300      # requests per window per IP (set to 0 to disable)
+RATE_LIMIT_WINDOW_SECONDS=60  # window duration in seconds
+```
+
+When the limit is exceeded, the API returns `429 Too many requests` with the request ID attached. The frontend handles this via the global error notifier.
+
+> **Production note:** The current implementation is in-memory (Python `defaultdict`). For multi-worker deployments, replace with a Redis-backed solution such as [`slowapi`](https://pypi.org/project/slowapi/) + Redis.
+
+### Request Correlation IDs
+
+Every request receives a UUID `X-Request-ID` header (middleware: `app/core/request_id.py`). This ID is:
+
+- Returned in every response header (`X-Request-ID`)
+- Included in 500 error response bodies for user reporting
+- Stored in MongoDB `error_logs` alongside the full traceback
+- Searchable on the admin Error Logs page (`/errors`)
+
+### Global Error Tracking
+
+Unhandled exceptions (500) are caught by a global handler that:
+
+1. Logs the full traceback to the Python logger
+2. Persists the error to MongoDB `error_logs` (fire-and-forget — won't block the error response)
+3. Returns a sanitized response: `"Internal server error (Request ID: <uuid>)"`
+
+HTTP-level exceptions (401/403/404/409/422/429) use a separate handler that adds the request ID to the response body but does NOT persist to the error log DB.
+
+### Frontend Error Handling
+
+- **Global error notifier**: All RTK Query API errors (queries) trigger a snackbar notification with the server's error detail. No more silent failures.
+- **Mutation errors**: Each dialog catches mutation errors and shows context-specific messages (`getErrorMessage()`).
+- **Error Logs page**: Admin-accessible page at `/errors` showing all 500 errors with expandable traceback rows, search, and pagination. Gated behind `errors.read` permission.
+
+### Security Headers (Nginx)
+
+The frontend Nginx config includes:
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 
 ## Running Tests
 
