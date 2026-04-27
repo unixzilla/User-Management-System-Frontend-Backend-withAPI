@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # CORS — JSON array from env (e.g. '["http://localhost:3000","http://localhost:8080"]')
     cors_origins: List[str] = Field([], alias="CORS_ORIGINS", json=True)
 
+    # Rate limiting — set to 0 to disable
+    rate_limit_requests: int = Field(300, alias="RATE_LIMIT_REQUESTS")
+    rate_limit_window_seconds: int = Field(60, alias="RATE_LIMIT_WINDOW_SECONDS")
+
     # Initial Admin
     first_superuser_email: str = Field("admin@example.com", alias="FIRST_SUPERUSER_EMAIL")
     first_superuser_password: str = Field(..., alias="FIRST_SUPERUSER_PASSWORD")

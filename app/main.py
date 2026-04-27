@@ -1,7 +1,7 @@
 """FastAPI application entry point."""
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -77,10 +77,31 @@ from app.core.request_id import RequestIDMiddleware
 app.add_middleware(RequestIDMiddleware)
 
 # Rate limiter middleware (in-memory; replace with Redis-backed solution in production)
-from app.core.rate_limiter import RateLimiter
-app.add_middleware(RateLimiter, max_requests=60, window_seconds=60)
+# Set RATE_LIMIT_REQUESTS=0 to disable entirely
+if settings.rate_limit_requests > 0:
+    from app.core.rate_limiter import RateLimiter
+    app.add_middleware(
+        RateLimiter,
+        max_requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
 
-# Global exception handler — prevents internal details from leaking in 500 responses
+# Global exception handler — prevents internal details from leaking in 500 responses.
+# Register HTTPException handler FIRST so it takes priority over the catch-all Exception handler.
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """Pass through HTTPException with request ID, without logging to error DB."""
+    request_id = getattr(request.state, "request_id", None)
+    detail = exc.detail
+    if request_id and isinstance(detail, str):
+        detail = f"{detail} (Request ID: {request_id})"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": detail},
+        headers={"X-Request-ID": request_id} if request_id else {},
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     import logging
