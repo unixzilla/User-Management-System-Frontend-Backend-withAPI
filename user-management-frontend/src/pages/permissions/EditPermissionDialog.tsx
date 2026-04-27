@@ -15,6 +15,7 @@ import { permissionUpdateSchema, type PermissionUpdateSchema } from '@/utils/val
 import { useUpdatePermissionMutation, useGetResourcesQuery } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Permission } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 const ACTIONS = ['read', 'write', 'delete'];
 
@@ -63,7 +64,7 @@ export function EditPermissionDialog({ open, onClose, permission }: EditPermissi
       enqueueSnackbar('Permission updated successfully', { variant: 'success' });
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update permission', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update permission'), { variant: 'error' });
     }
   };
 

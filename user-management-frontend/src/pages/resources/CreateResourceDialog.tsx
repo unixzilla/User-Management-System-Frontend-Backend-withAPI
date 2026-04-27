@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { resourceCreateSchema, type ResourceCreateSchema } from '@/utils/validation';
 import { useCreateResourceMutation } from '@/api';
 import { useSnackbar } from 'notistack';
+import { getErrorMessage } from '@/utils/format';
 
 interface CreateResourceDialogProps {
   open: boolean;
@@ -45,7 +46,7 @@ export function CreateResourceDialog({ open, onClose }: CreateResourceDialogProp
       reset();
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to create resource', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to create resource'), { variant: 'error' });
     }
   };
 

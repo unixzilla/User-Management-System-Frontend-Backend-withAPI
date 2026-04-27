@@ -17,6 +17,7 @@ import { useAppDispatch } from '@/hooks.redux';
 import { setCredentials } from '@/store/authSlice';
 import { storage } from '@/utils/storage';
 import { User } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface EditProfileDialogProps {
   open: boolean;
@@ -85,7 +86,7 @@ export function EditProfileDialog({ open, onClose, user }: EditProfileDialogProp
       enqueueSnackbar('Profile updated successfully', { variant: 'success' });
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update profile', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update profile'), { variant: 'error' });
     }
   };
 

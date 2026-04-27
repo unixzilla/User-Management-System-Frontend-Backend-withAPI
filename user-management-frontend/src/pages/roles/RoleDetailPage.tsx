@@ -45,6 +45,7 @@ import { useSnackbar } from 'notistack';
 
 // Import existing dialogs if needed (reuse confirm pattern)
 import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
+import { getErrorMessage } from '@/utils/format';
 
 export function RoleDetailPage() {
   const location = useLocation();
@@ -141,7 +142,7 @@ export function RoleDetailPage() {
       setSearchKeyword('');
       setSearchResults([]);
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to add users to role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to add users to role'), { variant: 'error' });
     }
   };
 
@@ -163,7 +164,7 @@ export function RoleDetailPage() {
         enqueueSnackbar('Permission assigned', { variant: 'success' });
       }
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update permission', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update permission'), { variant: 'error' });
     }
   };
 
@@ -190,7 +191,7 @@ export function RoleDetailPage() {
       setShowRemoveConfirm(false);
       setUserToRemove(null);
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to remove user from role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to remove user from role'), { variant: 'error' });
     }
   };
 

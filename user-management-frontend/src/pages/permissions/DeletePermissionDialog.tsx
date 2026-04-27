@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
 import { useDeletePermissionMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Permission } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface DeletePermissionDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ export function DeletePermissionDialog({ open, permission, onClose, onConfirm }:
       enqueueSnackbar(`Permission "${permission.name}" deleted successfully`, { variant: 'success' });
       onConfirm();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to delete permission', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to delete permission'), { variant: 'error' });
     }
   };
 

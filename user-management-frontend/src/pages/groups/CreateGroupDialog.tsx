@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { groupCreateSchema, type GroupCreateSchema } from '@/utils/validation';
 import { useCreateGroupMutation } from '@/api';
 import { useSnackbar } from 'notistack';
+import { getErrorMessage } from '@/utils/format';
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -43,7 +44,7 @@ export function CreateGroupDialog({ open, onClose }: CreateGroupDialogProps) {
       reset();
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to create group', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to create group'), { variant: 'error' });
     }
   };
 

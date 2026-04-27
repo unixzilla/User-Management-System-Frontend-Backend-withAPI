@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
 import { useDeleteResourceMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Resource } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface DeleteResourceDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ export function DeleteResourceDialog({ open, resource, onClose, onConfirm }: Del
       enqueueSnackbar(`Resource "${resource.name}" deleted successfully`, { variant: 'success' });
       onConfirm();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to delete resource', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to delete resource'), { variant: 'error' });
     }
   };
 

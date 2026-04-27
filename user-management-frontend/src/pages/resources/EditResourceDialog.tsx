@@ -14,6 +14,7 @@ import { resourceUpdateSchema, type ResourceUpdateSchema } from '@/utils/validat
 import { useUpdateResourceMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Resource } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface EditResourceDialogProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function EditResourceDialog({ open, onClose, resource }: EditResourceDial
       enqueueSnackbar('Resource updated successfully', { variant: 'success' });
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update resource', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update resource'), { variant: 'error' });
     }
   };
 

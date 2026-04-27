@@ -5,10 +5,18 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+const passwordField = z.string()
+  .min(10, 'Password must be at least 10 characters')
+  .max(128, 'Password too long')
+  .regex(/[A-Z]/, 'Must contain an uppercase letter')
+  .regex(/[a-z]/, 'Must contain a lowercase letter')
+  .regex(/[0-9]/, 'Must contain a digit')
+  .regex(/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/`~]/, 'Must contain a special character');
+
 export const userCreateSchema = z.object({
   email: z.string().email('Invalid email address'),
   username: z.string().min(3, 'Username must be at least 3 characters').max(100, 'Username too long'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordField,
   full_name: z.string().optional(),
 });
 
@@ -16,9 +24,8 @@ export const userUpdateSchema = z.object({
   email: z.string().email('Invalid email address').optional().nullable(),
   username: z.string().min(3).max(100).optional().nullable(),
   full_name: z.string().optional().nullable(),
-  password: z.string().min(8).optional().or(z.literal('')), // Allow empty string for "no change"
+  password: passwordField.optional().or(z.literal('')),
   is_active: z.boolean().optional(),
-  is_verified: z.boolean().optional(),
 });
 
 export const roleCreateSchema = z.object({
@@ -80,7 +87,7 @@ export type ResourceUpdateSchema = z.infer<typeof resourceUpdateSchema>;
 
 export const profileUpdateSchema = z.object({
   full_name: z.string().optional().nullable(),
-  password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
+  password: passwordField.optional().or(z.literal('')),
   confirmPassword: z.string().optional(),
 }).refine(data => !data.password || data.password === data.confirmPassword, {
   message: "Passwords don't match",

@@ -24,6 +24,7 @@ import {
 } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Role, Permission } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface EditRoleDialogProps {
   open: boolean;
@@ -113,7 +114,7 @@ export function EditRoleDialog({ open, onClose, role }: EditRoleDialogProps) {
       enqueueSnackbar('Role updated successfully', { variant: 'success' });
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update role'), { variant: 'error' });
     }
   };
 

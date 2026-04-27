@@ -30,6 +30,7 @@ import { useSnackbar } from 'notistack';
 import { User } from '@/types';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
+import { getErrorMessage } from '@/utils/format';
 
 interface EditUserDialogProps {
   open: boolean;
@@ -111,7 +112,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
       enqueueSnackbar('User updated successfully', { variant: 'success' });
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update user', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update user'), { variant: 'error' });
     }
   };
 
@@ -130,7 +131,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
       enqueueSnackbar('Role assigned successfully', { variant: 'success' });
       setSelectedRoleToAdd('');
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to assign role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to assign role'), { variant: 'error' });
     }
   };
 
@@ -141,7 +142,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
       if (role) setUserRoles((prev) => prev.filter((name) => name !== role.name));
       enqueueSnackbar('Role removed successfully', { variant: 'success' });
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to remove role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to remove role'), { variant: 'error' });
     }
   };
 
@@ -154,7 +155,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
       enqueueSnackbar('Group assigned successfully', { variant: 'success' });
       setSelectedGroupToAdd('');
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to add user to group', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to add user to group'), { variant: 'error' });
     }
   };
 
@@ -165,7 +166,7 @@ export function EditUserDialog({ open, onClose, user }: EditUserDialogProps) {
       if (group) setUserGroups((prev) => prev.filter((name) => name !== group.name));
       enqueueSnackbar('Group removed successfully', { variant: 'success' });
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to remove user from group', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to remove user from group'), { variant: 'error' });
     }
   };
 

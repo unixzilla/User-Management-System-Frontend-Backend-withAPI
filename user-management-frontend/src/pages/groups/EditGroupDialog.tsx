@@ -14,6 +14,7 @@ import { groupUpdateSchema, type GroupUpdateSchema } from '@/utils/validation';
 import { useUpdateGroupMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { UserGroup } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface EditGroupDialogProps {
   open: boolean;
@@ -46,7 +47,7 @@ export function EditGroupDialog({ open, onClose, group }: EditGroupDialogProps) 
       enqueueSnackbar('Group updated successfully', { variant: 'success' });
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to update group', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to update group'), { variant: 'error' });
     }
   };
 

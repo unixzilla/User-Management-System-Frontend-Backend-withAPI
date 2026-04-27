@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
 import { useDeleteRoleMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Role } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface DeleteRoleDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ export function DeleteRoleDialog({ open, role, onClose, onConfirm }: DeleteRoleD
       enqueueSnackbar(`Role "${role.name}" deleted successfully`, { variant: 'success' });
       onConfirm();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to delete role (may be assigned to users)', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to delete role (may be assigned to users)'), { variant: 'error' });
     }
   };
 

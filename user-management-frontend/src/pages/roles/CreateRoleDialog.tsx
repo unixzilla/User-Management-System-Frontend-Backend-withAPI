@@ -22,6 +22,7 @@ import {
 } from '@/api';
 import { useSnackbar } from 'notistack';
 import { Permission } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface CreateRoleDialogProps {
   open: boolean;
@@ -87,7 +88,7 @@ export function CreateRoleDialog({ open, onClose }: CreateRoleDialogProps) {
       setSelectedPermIds(new Set());
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to create role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to create role'), { variant: 'error' });
     }
   };
 

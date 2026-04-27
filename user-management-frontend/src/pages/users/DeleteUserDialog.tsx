@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog/ConfirmDialog';
 import { useDeleteUserMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { User } from '@/types';
+import { getErrorMessage } from '@/utils/format';
 
 interface DeleteUserDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ export function DeleteUserDialog({ open, user, onClose, onConfirm }: DeleteUserD
       enqueueSnackbar(`User "${user.username}" deleted successfully`, { variant: 'success' });
       onConfirm();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to delete user', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to delete user'), { variant: 'error' });
     }
   };
 

@@ -20,6 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { userCreateSchema, type UserCreateSchema } from '@/utils/validation';
 import { useCreateUserMutation } from '@/api';
 import { useSnackbar } from 'notistack';
+import { getErrorMessage } from '@/utils/format';
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ export function CreateUserDialog({ open, onClose }: CreateUserDialogProps) {
       reset();
       onClose();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to create user', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to create user'), { variant: 'error' });
     }
   };
 

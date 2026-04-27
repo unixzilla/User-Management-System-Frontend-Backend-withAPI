@@ -43,6 +43,7 @@ import { canManageGroups } from '@/utils/permissions';
 import { useAppSelector } from '@/hooks.redux';
 import { User, Role } from '@/types';
 import { useSnackbar } from 'notistack';
+import { getErrorMessage } from '@/utils/format';
 
 export function GroupDetailPage() {
   const location = useLocation();
@@ -109,7 +110,7 @@ export function GroupDetailPage() {
       setSearchKeyword('');
       setSearchResults([]);
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to add users', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to add users'), { variant: 'error' });
     }
   };
 
@@ -126,7 +127,7 @@ export function GroupDetailPage() {
       setShowRemoveConfirm(false);
       setUserToRemove(null);
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to remove user', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to remove user'), { variant: 'error' });
     }
   };
 
@@ -138,7 +139,7 @@ export function GroupDetailPage() {
       enqueueSnackbar(`Role "${role?.name}" assigned to group`, { variant: 'success' });
       setSelectedRoleToAdd('');
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to assign role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to assign role'), { variant: 'error' });
     }
   };
 
@@ -155,7 +156,7 @@ export function GroupDetailPage() {
       setShowRemoveRoleConfirm(false);
       setRoleToRemove(null);
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to remove role', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to remove role'), { variant: 'error' });
     }
   };
 

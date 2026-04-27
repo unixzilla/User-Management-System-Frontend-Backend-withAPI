@@ -4,6 +4,7 @@ import { useDeleteGroupMutation } from '@/api';
 import { useSnackbar } from 'notistack';
 import { UserGroup } from '@/types';
 import { Alert, Box } from '@mui/material';
+import { getErrorMessage } from '@/utils/format';
 
 interface DeleteGroupDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ export function DeleteGroupDialog({ open, group, onClose, onConfirm }: DeleteGro
       enqueueSnackbar(`Group "${group.name}" deleted successfully`, { variant: 'success' });
       onConfirm();
     } catch (err: any) {
-      enqueueSnackbar(err.data?.detail || 'Failed to delete group', { variant: 'error' });
+      enqueueSnackbar(getErrorMessage(err, 'Failed to delete group'), { variant: 'error' });
     }
   };
 
