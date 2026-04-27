@@ -123,12 +123,14 @@ class UserService:
             raise ConflictError(detail="Cannot deactivate the system administrator account")
 
         update_data = user_in.model_dump(exclude_unset=True)
-        changed_fields = list(update_data.keys())
 
-        # Handle password separately
-        if "password" in update_data:
+        # Handle password separately (before computing changed_fields so password is never logged)
+        password_changed = "password" in update_data
+        if password_changed:
             from app.core.security import hash_password
             update_data["hashed_password"] = hash_password(update_data.pop("password"))
+
+        changed_fields = [k for k in update_data.keys() if k != "hashed_password"]
 
         if not update_data:
             return user
@@ -139,13 +141,16 @@ class UserService:
 
         await db.refresh(user)
 
-        # Audit log
+        # Audit log (never log password field name or hash)
+        audit_payload: dict = {"changed_fields": changed_fields}
+        if password_changed:
+            audit_payload["password_changed"] = True
         await audit_service.log(
             event_type="user.updated",
             actor_id=actor_id,
             target_id=user_id,
             target_type="user",
-            payload={"changed_fields": changed_fields},
+            payload=audit_payload,
             ip_address=ip_address,
             user_agent=user_agent,
         )

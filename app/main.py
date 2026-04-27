@@ -1,8 +1,9 @@
 """FastAPI application entry point."""
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db.postgres import init_engine, get_async_engine
@@ -61,14 +62,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
-if settings.cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+# CORS middleware — always added, defaults to localhost origins in dev
+cors_origins = settings.cors_origins if settings.cors_origins else ["http://localhost:3000", "http://localhost:5173"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "User-Agent"],
+)
+
+# Rate limiter middleware (in-memory; replace with Redis-backed solution in production)
+from app.core.rate_limiter import RateLimiter
+app.add_middleware(RateLimiter, max_requests=60, window_seconds=60)
+
+# Global exception handler — prevents internal details from leaking in 500 responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    import logging
+    logger = logging.getLogger("app")
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
     )
 
 # Include API routers

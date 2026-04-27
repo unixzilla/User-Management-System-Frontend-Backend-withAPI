@@ -124,9 +124,6 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <Typography variant="body2" color="text.secondary" align="center">
-            Demo credentials: admin@example.com / admin123
-          </Typography>
         </CardContent>
       </Card>
     </Box>

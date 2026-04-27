@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Generic, Optional, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_serializer
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_serializer, field_validator
 
 T = TypeVar("T")
 
@@ -27,7 +27,26 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating a new user."""
 
-    password: str = Field(..., min_length=8)
+    password: str = Field(
+        ...,
+        min_length=10,
+        max_length=128,
+        description="Password must be at least 10 characters with mixed case, digit, and special character",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        import re
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/`~]", v):
+            raise ValueError("Password must contain at least one special character")
+        return v
 
 
 class UserLogin(BaseModel):
@@ -45,7 +64,6 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=255)
     password: Optional[str] = Field(None, min_length=8)
     is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
 
 
 class UserOut(BaseModel):
@@ -77,11 +95,15 @@ class UserOut(BaseModel):
 
     @field_serializer("permissions")
     def serialize_permissions(self, permissions: list) -> list[str]:
-        """Collect unique permissions from all roles."""
+        """Collect unique permissions from all direct and group-inherited roles."""
         perm_names: set[str] = set()
         for role in self.roles:
             for perm in role.permissions:
                 perm_names.add(perm.name)
+        for group in self.groups:
+            for role in group.roles:
+                for perm in role.permissions:
+                    perm_names.add(perm.name)
         return sorted(perm_names)
 
 

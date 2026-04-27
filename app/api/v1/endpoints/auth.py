@@ -1,5 +1,6 @@
 """Authentication endpoints: login, refresh, logout."""
 from typing import Annotated
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,7 @@ from app.services.user_service import user_service
 from app.schemas.token import TokenPair
 from app.schemas.user import UserCreate, UserLogin
 from app.models.user import User
+from app.models.token_blocklist import TokenBlocklist
 from app.dependencies import oauth2_scheme, get_current_user, get_db
 from app.core.exceptions import UnauthorizedError, ForbiddenError
 
@@ -79,7 +81,8 @@ async def refresh(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenPair:
     """
-    Exchange a valid refresh token for a new access token.
+    Exchange a valid refresh token for a new token pair (rotation).
+    The old refresh token is revoked.
     """
     token = await oauth2_scheme(request)
 
@@ -97,6 +100,16 @@ async def refresh(
     if not user_id:
         raise UnauthorizedError(detail="Token missing subject")
 
+    # Revoke the old refresh token
+    old_jti = payload.get("jti")
+    old_exp = payload.get("exp")
+    if old_jti and old_exp:
+        db.add(TokenBlocklist(
+            jti=old_jti,
+            user_id=user_id,
+            expires_at=datetime.fromtimestamp(old_exp, tz=timezone.utc),
+        ))
+
     # Verify user exists and is active
     user = await user_service.user_crud.get(db, user_id)
     if not user or not user.is_active:
@@ -105,6 +118,8 @@ async def refresh(
     # Issue new tokens
     access_token = create_access_token(subject=str(user.id))
     new_refresh_token = create_refresh_token(subject=str(user.id))
+
+    await db.commit()
 
     return TokenPair(
         access_token=access_token,
@@ -116,12 +131,27 @@ async def refresh(
 async def logout(
     current_user: Annotated[User, Depends(get_current_user)],
     request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """
-    Logout the current user.
-
-    In production, the refresh token would be added to a blocklist.
+    Logout the current user. Revokes the provided refresh token.
     """
+    # Extract and revoke the refresh token from the request body or header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        payload = decode_token(token)  # Don't enforce type — accept both
+        if payload:
+            jti = payload.get("jti")
+            exp = payload.get("exp")
+            if jti and exp:
+                db.add(TokenBlocklist(
+                    jti=jti,
+                    user_id=str(current_user.id),
+                    expires_at=datetime.fromtimestamp(exp, tz=timezone.utc),
+                ))
+                await db.commit()
+
     await user_service.audit_service.log(
         event_type="logout",
         actor_id=current_user.id,

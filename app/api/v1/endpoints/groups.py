@@ -147,7 +147,7 @@ async def add_member_to_group(
 async def remove_member_from_group(
     request: Request,
     group_id: int,
-    user_id: str,
+    user_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_permission("groups.write"))],
 ) -> dict:
@@ -155,7 +155,7 @@ async def remove_member_from_group(
     success = await group_service.remove_member(
         db,
         group_id=group_id,
-        user_id=UUID(user_id),
+        user_id=user_id,
         actor=current_user,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,

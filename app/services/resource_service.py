@@ -9,13 +9,14 @@ from app.models.resource import Resource
 from app.services.audit_service import audit_service
 from app.core.exceptions import ConflictError, NotFoundError
 
-PROTECTED_RESOURCES = {"users", "roles", "permissions", "groups"}
+PROTECTED_RESOURCES = {"users", "roles", "permissions", "groups", "resources"}
 
 DEFAULT_RESOURCES = [
     {"name": "users", "description": "User management"},
     {"name": "roles", "description": "Role management"},
     {"name": "permissions", "description": "Permission management"},
     {"name": "groups", "description": "User group management"},
+    {"name": "resources", "description": "Resource management"},
 ]
 
 

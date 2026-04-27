@@ -11,7 +11,7 @@ from app.services.user_service import user_service
 from app.models.user import User
 from app.models.role import Role
 from app.schemas.user import UserCreate, UserUpdate, UserOut, PaginatedResponse
-from app.dependencies import get_current_user, get_current_active_admin, get_db, require_permission
+from app.dependencies import get_current_user, get_db, require_permission
 from app.core.exceptions import NotFoundError, ConflictError, ForbiddenError
 from app.core.security import decode_token
 from app.crud.role import role as role_crud
@@ -64,17 +64,16 @@ async def create_user(
 
 @router.get("/{user_id}", response_model=UserOut)
 async def get_user(
-    user_id: str,
+    user_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     """Get a specific user by ID."""
-    # Check permissions: users can view themselves; admins can view anyone
     user = await user_service.get_user(db, user_id)
     if user is None:
         raise NotFoundError(detail="User not found")
 
-    if str(current_user.id) != user_id and not current_user.is_admin:
+    if current_user.id != user_id and not current_user.is_admin:
         raise ForbiddenError(detail="Not enough permissions")
 
     return user
@@ -83,22 +82,18 @@ async def get_user(
 @router.patch("/{user_id}", response_model=UserOut)
 async def update_user(
     request: Request,
-    user_id: str,
+    user_id: UUID,
     user_in: UserUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     """Update a user's information."""
-
-    uid = UUID(user_id)
-
-    # Check permissions
-    if str(current_user.id) != user_id and not current_user.is_admin:
+    if current_user.id != user_id and not current_user.is_admin:
         raise ForbiddenError(detail="Not enough permissions")
 
     return await user_service.update_user(
         db,
-        user_id=uid,
+        user_id=user_id,
         user_in=user_in,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
@@ -109,17 +104,14 @@ async def update_user(
 @router.delete("/{user_id}")
 async def delete_user(
     request: Request,
-    user_id: str,
+    user_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_permission("users.delete"))],
 ) -> dict:
-    """Soft delete a user."""
-
-    uid = UUID(user_id)
-
+    """Delete a user."""
     success = await user_service.delete_user(
         db,
-        user_id=uid,
+        user_id=user_id,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
@@ -134,18 +126,15 @@ async def delete_user(
 @router.post("/{user_id}/roles", status_code=status.HTTP_200_OK)
 async def assign_role_to_user(
     request: Request,
-    user_id: str,
+    user_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_permission("users.write"))],
     role_id: int = Query(..., description="Role ID to assign"),
 ) -> dict:
     """Assign a role to a user."""
-
-    uid = UUID(user_id)
-
     success = await user_service.assign_role(
         db,
-        user_id=uid,
+        user_id=user_id,
         role_id=role_id,
         actor=current_user,
         actor_id=current_user.id,
@@ -162,18 +151,15 @@ async def assign_role_to_user(
 @router.delete("/{user_id}/roles/{role_id}")
 async def remove_role_from_user(
     request: Request,
-    user_id: str,
+    user_id: UUID,
     role_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_permission("users.write"))],
 ) -> dict:
     """Remove a role from a user."""
-
-    uid = UUID(user_id)
-
     success = await user_service.remove_role(
         db,
-        user_id=uid,
+        user_id=user_id,
         role_id=role_id,
         actor=current_user,
         actor_id=current_user.id,

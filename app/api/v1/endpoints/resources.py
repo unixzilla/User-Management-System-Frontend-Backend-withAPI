@@ -14,7 +14,7 @@ from app.schemas.resource import (
     ResourceOut,
 )
 from app.schemas.user import PaginatedResponse
-from app.dependencies import get_current_active_admin, get_db, require_permission
+from app.dependencies import get_db, require_permission
 from app.services.resource_service import resource_service
 from app.crud.resource import resource as resource_crud
 from app.core.exceptions import NotFoundError
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/resources", tags=["resources"])
 @router.get("/", response_model=PaginatedResponse[ResourceOut])
 async def list_resources(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_permission("permissions.read"))],
+    current_user: Annotated[User, Depends(require_permission("resources.read"))],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ) -> dict:
@@ -40,7 +40,7 @@ async def list_resources(
 async def get_resource(
     resource_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_permission("permissions.read"))],
+    current_user: Annotated[User, Depends(require_permission("resources.read"))],
 ):
     """Get a resource by ID."""
     resource = await resource_crud.get(db, resource_id)
@@ -54,7 +54,7 @@ async def create_resource(
     request: Request,
     resource_in: ResourceCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
+    current_user: Annotated[User, Depends(require_permission("resources.write"))],
 ):
     """Create a new resource."""
     return await resource_service.create_resource(
@@ -73,7 +73,7 @@ async def update_resource(
     resource_id: int,
     resource_in: ResourceUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_permission("permissions.write"))],
+    current_user: Annotated[User, Depends(require_permission("resources.write"))],
 ):
     """Update a resource."""
     return await resource_service.update_resource(
@@ -92,7 +92,7 @@ async def delete_resource(
     request: Request,
     resource_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_permission("permissions.delete"))],
+    current_user: Annotated[User, Depends(require_permission("resources.delete"))],
 ) -> dict:
     """Delete a resource and cascade-delete all associated permissions."""
     success = await resource_service.delete_resource(

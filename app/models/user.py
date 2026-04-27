@@ -88,9 +88,14 @@ class User(Base):
 
     @property
     def is_admin(self) -> bool:
-        """Check if user has the admin permission (via any role)."""
+        """Check if user has the admin permission (via any direct or group role)."""
         for role in self.roles:
             for perm in role.permissions:
                 if perm.name == "admin":
                     return True
+        for group in self.groups:
+            for role in group.roles:
+                for perm in role.permissions:
+                    if perm.name == "admin":
+                        return True
         return False

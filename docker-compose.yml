@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-user_management}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-127.0.0.1:5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,8 +18,11 @@ services:
 
   mongodb:
     image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme}
     ports:
-      - "27017:27017"
+      - "${MONGO_HOST_PORT:-127.0.0.1:27017}:27017"
     volumes:
       - mongodata:/data/db
     healthcheck:
@@ -45,7 +48,7 @@ services:
         condition: service_healthy
     environment:
       POSTGRES_HOST: postgres
-      MONGODB_URL: mongodb://mongodb:27017
+      MONGODB_URL: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-changeme}@mongodb:27017
     command: >
       sh -c "
         sleep 5 &&

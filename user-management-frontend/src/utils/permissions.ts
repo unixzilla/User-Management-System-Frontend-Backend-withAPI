@@ -23,7 +23,7 @@ export const canViewPermissions = (user: User | null): boolean =>
   hasPermission(user, 'permissions.read');
 
 export const canViewResources = (user: User | null): boolean =>
-  hasPermission(user, 'permissions.read');
+  hasPermission(user, 'resources.read');
 
 // Manage permissions (write)
 export const canEditUsers = (user: User | null): boolean =>
@@ -51,10 +51,10 @@ export const canDeletePermissions = (user: User | null): boolean =>
   hasPermission(user, 'permissions.delete');
 
 export const canManageResources = (user: User | null): boolean =>
-  hasPermission(user, 'permissions.write');
+  hasPermission(user, 'resources.write');
 
 export const canDeleteResources = (user: User | null): boolean =>
-  hasPermission(user, 'permissions.delete');
+  hasPermission(user, 'resources.delete');
 
 // Composite checks
 export const canViewUser = (currentUser: User | null, targetUserId: string): boolean =>

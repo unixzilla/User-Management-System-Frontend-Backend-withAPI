@@ -21,8 +21,12 @@ DEFAULT_PERMISSIONS = [
     {"name": "roles.read", "description": "View roles", "resource": "roles", "action": "read"},
     {"name": "roles.write", "description": "Create and update roles", "resource": "roles", "action": "write"},
     {"name": "roles.delete", "description": "Delete roles", "resource": "roles", "action": "delete"},
-    {"name": "permissions.read", "description": "View permissions", "resource": "permissions", "action": "read"},
+    {"name": "permissions.read", "description": "View permissions and resources", "resource": "permissions", "action": "read"},
     {"name": "permissions.write", "description": "Manage permissions", "resource": "permissions", "action": "write"},
+    {"name": "permissions.delete", "description": "Delete permissions and resources", "resource": "permissions", "action": "delete"},
+    {"name": "resources.read", "description": "View resources", "resource": "resources", "action": "read"},
+    {"name": "resources.write", "description": "Create and update resources", "resource": "resources", "action": "write"},
+    {"name": "resources.delete", "description": "Delete resources", "resource": "resources", "action": "delete"},
     {"name": "groups.read", "description": "View user groups", "resource": "groups", "action": "read"},
     {"name": "groups.write", "description": "Create and update groups", "resource": "groups", "action": "write"},
     {"name": "groups.delete", "description": "Delete groups", "resource": "groups", "action": "delete"},
@@ -31,8 +35,8 @@ DEFAULT_PERMISSIONS = [
 
 DEFAULT_ROLE_PERMISSIONS = {
     "admin": ["admin"],
-    "editor": ["users.read", "users.write", "roles.read", "permissions.read", "groups.read"],
-    "viewer": ["users.read", "roles.read", "permissions.read", "groups.read"],
+    "editor": ["users.read", "users.write", "roles.read", "permissions.read", "groups.read", "resources.read"],
+    "viewer": ["users.read", "roles.read", "permissions.read", "groups.read", "resources.read"],
     "guest": [],
 }
 
